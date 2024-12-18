@@ -20,6 +20,7 @@ test_gpt2fp32cu
 train_gpt2
 train_gpt2cu
 train_gpt2fp32cu
+infer_gpt2cu
 profile_gpt2cu
 dev/cuda/*_forward
 dev/cuda/*_backward
