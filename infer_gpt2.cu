@@ -48,23 +48,32 @@ int main(int argc, char *argv[]) {
     gpt2_allocate_state(&model, B, T);
  
     int gen_tokens[B * T];
-    floatX* cpu_logits_raw = (floatX*)mallocCheck(model.config.vocab_size * sizeof(floatX));
-    float* cpu_logits = (float*)mallocCheck(model.config.vocab_size * sizeof(float));
+    floatX* cpu_logits_raw = (floatX*) mallocCheck(model.config.vocab_size * sizeof(floatX));
+    float* cpu_logits = (float*) mallocCheck(model.config.vocab_size * sizeof(float));
     int eot_token = tokenizer.eot_token;
 
     for(int i = 0; i < B * T; ++i) {
-        prompt[i] = eot_token;
+        gen_tokens[i] = eot_token;
     }
 
-    // "Hello Sir! "
-    prompt[1] = 15496;
-    prompt[2] = 7361;
-    prompt[3] = 0;
-    prompt[4] = 220;
+    // [15496, 11, 314, 716, 32451, 20119, 290, 314, 588]
+    gen_tokens[0] = 15496;
+    gen_tokens[1] = 11;
+    gen_tokens[2] = 314;
+    gen_tokens[3] = 716;
+    gen_tokens[4] = 32451;
+    gen_tokens[5] = 20119;
+    gen_tokens[6] = 290;
+    gen_tokens[7] = 314;
+    gen_tokens[8] = 588;
 
-    for (int t = 5; t < B * T; t++) {
-        gpt2_forward(&model, prompt, B, T);
+    int genT = 128;
+    float temp = 1.0;
+    float topk = 30;
+    unsigned long long sample_rng_state = 42;
 
+    for (int t = 9; t < genT; t++) {
+        gpt2_forward(&model, gen_tokens, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
         // get the V-dimensional vector probs[0, t-1, :]
         floatX* logits = model.acts.output + (t - 1) * model.config.padded_vocab_size;
         // move probs back to CPU and sample (note we only move the first vocab_size logits, ignoring the padding)
@@ -75,8 +84,13 @@ int main(int argc, char *argv[]) {
         }
         // sample the next token
         float coin = random_f32(&sample_rng_state);
-        int next_token = sample_softmax(cpu_logits, model.config.vocab_size, coin);
+        // int next_token = sample_softmax_topk(cpu_logits, model.config.vocab_size, coin, topk, temp);
+        int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
         gen_tokens[t] = next_token;
+
+        const char* token_str = tokenizer_decode(&tokenizer, next_token);
+        safe_printf(token_str);
+        fflush(stdout);
     }
 
     gpt2_free(&model);
