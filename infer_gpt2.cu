@@ -10,8 +10,10 @@
 struct ParsedArgs {
     std::vector<int> tokens;
     int n_gen;
-    int top_k;    // New flag: top_k
-    float temp;   // New flag: temperature
+    int top_k;    // Top-K sampling
+    float temp;   // Temperature for sampling
+    float top_p;  // Top-P (nucleus) sampling
+    int seed;     // Random seed for reproducibility
 };
 
 ParsedArgs parse_args(int argc, char *argv[]) {
@@ -19,6 +21,8 @@ ParsedArgs parse_args(int argc, char *argv[]) {
     result.n_gen = 100;
     result.top_k = 50;  
     result.temp = 1.0;
+    result.top_p = 1.0;  // Default value for top_p
+    result.seed = 42;    // Default value for seed (-1 means not set)
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -53,6 +57,20 @@ ParsedArgs parse_args(int argc, char *argv[]) {
                 i += 1;
             } else {
                 std::cerr << "Error: --temp flag provided but no float value found.\n";
+            }
+        } else if (arg == "--top_p") {
+            if (i + 1 < argc) {
+                result.top_p = std::atof(argv[i + 1]);
+                i += 1;
+            } else {
+                std::cerr << "Error: --top_p flag provided but no float value found.\n";
+            }
+        } else if (arg == "--seed") {
+            if (i + 1 < argc) {
+                result.seed = std::atoi(argv[i + 1]);
+                i += 1;
+            } else {
+                std::cerr << "Error: --seed flag provided but no integer value found.\n";
             }
         }
     }
@@ -121,7 +139,7 @@ int main(int argc, char *argv[]) {
     }
 
     int genT = args.n_gen + args.tokens.size();
-    unsigned long long sample_rng_state = 42;
+    unsigned long long sample_rng_state = (unsigned long long)args.seed;
 
     for (int t = args.tokens.size(); t < genT; t++) {
         gpt2_forward(&model, gen_tokens, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
@@ -135,7 +153,7 @@ int main(int argc, char *argv[]) {
         }
         // sample the next token
         float coin = random_f32(&sample_rng_state);
-        int next_token = sample_softmax_topk(cpu_logits, model.config.vocab_size, coin, args.top_k, args.temp);
+        int next_token = sample_softmax_topk_topp(cpu_logits, model.config.vocab_size, coin, args.top_k, args.top_p, args.temp);
         // int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
         gen_tokens[t] = next_token;
 
