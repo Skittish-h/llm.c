@@ -68,8 +68,8 @@ int main(int argc, char *argv[]) {
     gen_tokens[8] = 588;
 
     int genT = 128;
-    float temp = 1.0;
-    float topk = 30;
+    float temp = 1;
+    float topk = 1;
     unsigned long long sample_rng_state = 42;
 
     for (int t = 9; t < genT; t++) {
@@ -84,8 +84,8 @@ int main(int argc, char *argv[]) {
         }
         // sample the next token
         float coin = random_f32(&sample_rng_state);
-        // int next_token = sample_softmax_topk(cpu_logits, model.config.vocab_size, coin, topk, temp);
-        int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
+        int next_token = sample_softmax_topk(cpu_logits, model.config.vocab_size, coin, topk, temp);
+        // int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
         gen_tokens[t] = next_token;
 
         const char* token_str = tokenizer_decode(&tokenizer, next_token);

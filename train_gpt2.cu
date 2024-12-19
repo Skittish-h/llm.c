@@ -457,14 +457,6 @@ void gpt2_build_from_checkpoint(GPT2 *model, const char* checkpoint_path, bool w
     // the master weights that are instead stored in the state .bin file.
     // In that case, this function mostly loads the model hyperparameters from the header.
 
-    if (PRECISION_MODE == PRECISION_FP16) {
-        // TODO for later perhaps, would require us dynamically converting the
-        // model weights from fp32 to fp16 online, here in this function, or writing
-        // the fp16 weights directly from Python, which we only do for fp32/bf16 atm.
-        fprintf(stderr, "build_from_checkpoint() does not support fp16 right now.\n");
-        exit(EXIT_FAILURE);
-    }
-
     // read in model from a checkpoint file
     FILE *model_file = fopenCheck(checkpoint_path, "rb");
     int model_header[256];
@@ -508,7 +500,7 @@ void gpt2_build_from_checkpoint(GPT2 *model, const char* checkpoint_path, bool w
     // read in the parameters if weight_init is true
     if (weight_init) {
         assert(model->params_memory != NULL);
-        file_to_device(model->params_memory, model_file, model->num_parameters_bytes, IO_BUF_SIZE, main_stream);
+        file_to_device(model->params_memory, model_file, model->num_parameters_bytes, IO_BUF_SIZE / sizeof(floatX), main_stream);
     }
     fcloseCheck(model_file);
 
