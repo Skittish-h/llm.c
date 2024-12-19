@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
     gpt2_init_common(&model);
     gpt2_build_from_checkpoint(&model, load_filename);
 
-    model.requires_grad = true;
+    model.requires_grad = false;
 
     // load tokenizer
     Tokenizer tokenizer;
@@ -126,6 +126,7 @@ int main(int argc, char *argv[]) {
     gpt2_allocate_state(&model, B, T);
  
     int gen_tokens[B * T];
+    double logprob_sum = 0;
     floatX* cpu_logits_raw = (floatX*) mallocCheck(model.config.vocab_size * sizeof(floatX));
     float* cpu_logits = (float*) mallocCheck(model.config.vocab_size * sizeof(float));
     int eot_token = tokenizer.eot_token;
@@ -140,6 +141,12 @@ int main(int argc, char *argv[]) {
 
     int genT = args.n_gen + args.tokens.size();
     unsigned long long sample_rng_state = (unsigned long long)args.seed;
+
+    // print prompt
+    for (size_t i = 0; i < args.tokens.size(); ++i) {
+        const char* token_str = tokenizer_decode(&tokenizer, args.tokens[i]);
+        safe_printf(token_str);
+    }
 
     for (int t = args.tokens.size(); t < genT; t++) {
         gpt2_forward(&model, gen_tokens, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
@@ -157,10 +164,19 @@ int main(int argc, char *argv[]) {
         // int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
         gen_tokens[t] = next_token;
 
+        float logprob = compute_logprob(cpu_logits, model.config.vocab_size, next_token);
+        logprob_sum += logprob;
+
         const char* token_str = tokenizer_decode(&tokenizer, next_token);
         safe_printf(token_str);
         fflush(stdout);
     }
+
+    float avg_logprob = logprob_sum / args.n_gen;
+    float perplexity = expf(-avg_logprob);
+
+    printf("\nAvg logp: %f\n", avg_logprob);
+    printf("Perplexity: %f\n", perplexity);
 
     gpt2_free(&model);
     tokenizer_free(&tokenizer);

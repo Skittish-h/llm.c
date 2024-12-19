@@ -32,46 +32,27 @@ static int compare_desc(const void *a, const void *b) {
     return (valA > valB) ? -1 : (valA < valB) ? 1 : 0;
 }
 
-int sample_softmax_topk(const float *logits, int n, float coin, int k, float temp) {
-    if (k <= 0 || k > n) {
-        // fallback to sampling over all if top_k is invalid
-        k = n;
-    }
 
-    // Create an array of (index, value)
-    struct indexed_value *arr = (struct indexed_value*)malloc(n * sizeof(struct indexed_value));
+float compute_logprob(const float *logits, int n, int idx) {
+    // Find the maximum logit value for numerical stability
+    float max_val = -INFINITY;
     for (int i = 0; i < n; i++) {
-        arr[i].idx = i;
-        arr[i].val = logits[i] / temp;
-    }
-
-    // Sort by value descending
-    qsort(arr, n, sizeof(struct indexed_value), compare_desc);
-
-    // Now the top_k elements are in arr[0:top_k-1]
-    double norm = 0.0;
-    for (int i = 0; i < k; i++) {
-        norm += expf(arr[i].val);
-    }
-
-    // Scale the random coin [0,1) by the normalized sum
-    coin *= norm;
-
-    float cdf = 0.0f;
-    for (int i = 0; i < k; i++) {
-        cdf += expf(arr[i].val);
-        if (coin < cdf) {
-            int chosen = arr[i].idx;
-            free(arr);
-            return chosen;
+        if (logits[i] > max_val) {
+            max_val = logits[i];
         }
     }
 
-    // Fallback (rare in case of floating-point issues)
-    int chosen = arr[k - 1].idx;
-    free(arr);
-    return chosen;
+    // Compute log-sum-exp
+    double sum_exp = 0.0;
+    for (int i = 0; i < n; i++) {
+        sum_exp += exp((double)logits[i] - (double)max_val);
+    }
+    double lse = (double)max_val + log(sum_exp);
+
+    // Return the log probability for the given idx
+    return (float)(logits[idx] - lse);
 }
+
 
 int sample_softmax_topk_topp(const float *logits, int n, float coin, int k, float p, float temp) {
     if (k <= 0 || k > n) {
@@ -93,16 +74,16 @@ int sample_softmax_topk_topp(const float *logits, int n, float coin, int k, floa
 
     // Apply Top-K: Restrict to top_k tokens
     int k_count = k;
-    double norm = 0.0;
+    double topk_norm = 0.0;
     for (int i = 0; i < k_count; i++) {
-        norm += expf(arr[i].val);
+        topk_norm += expf(arr[i].val);
     }
 
     // Apply Top-P: Find subset within Top-K that satisfies cumulative probability >= p
     float cumulative_prob = 0.0f;
     int p_count = 0;
     for (int i = 0; i < k_count; i++) {
-        cumulative_prob += expf(arr[i].val) / norm;
+        cumulative_prob += expf(arr[i].val) / topk_norm;
         p_count++;
         if (cumulative_prob >= p) {
             break;
