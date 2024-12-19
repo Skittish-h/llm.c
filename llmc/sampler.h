@@ -5,6 +5,7 @@ Implements a simple Sampler, used during model inference to sample tokens.
 #define SAMPLER_H
 
 #include <math.h>
+#include <stdlib.h>
 
 // Simple xorshift RNG
 unsigned int random_u32(unsigned long long *state) {
@@ -17,6 +18,102 @@ unsigned int random_u32(unsigned long long *state) {
 
 float random_f32(unsigned long long *state) { // random float32 in [0,1)
     return (random_u32(state) >> 8) / 16777216.0f;
+}
+
+struct indexed_value {
+    int idx;
+    float val;
+};
+
+// Comparison function for qsort to sort in descending order by val
+static int compare_desc(const void *a, const void *b) {
+    float valA = ((struct indexed_value*)a)->val;
+    float valB = ((struct indexed_value*)b)->val;
+    return (valA > valB) ? -1 : (valA < valB) ? 1 : 0;
+}
+
+
+float compute_logprob(const float *logits, int n, int idx) {
+    // Find the maximum logit value for numerical stability
+    float max_val = -INFINITY;
+    for (int i = 0; i < n; i++) {
+        if (logits[i] > max_val) {
+            max_val = logits[i];
+        }
+    }
+
+    // Compute log-sum-exp
+    double sum_exp = 0.0;
+    for (int i = 0; i < n; i++) {
+        sum_exp += exp((double)logits[i] - (double)max_val);
+    }
+    double lse = (double)max_val + log(sum_exp);
+
+    // Return the log probability for the given idx
+    return (float)(logits[idx] - lse);
+}
+
+
+int sample_softmax_topk_topp(const float *logits, int n, float coin, int k, float p, float temp) {
+    if (k <= 0 || k > n) {
+        k = n;  // Fallback: consider all tokens if top_k is invalid
+    }
+    if (p <= 0.0f || p > 1.0f) {
+        p = 1.0f;  // Fallback: consider full cumulative probability if p is invalid
+    }
+
+    // Create an array of (index, value)
+    struct indexed_value *arr = (struct indexed_value*)malloc(n * sizeof(struct indexed_value));
+    for (int i = 0; i < n; i++) {
+        arr[i].idx = i;
+        arr[i].val = logits[i] / temp;
+    }
+
+    // Sort by value descending
+    qsort(arr, n, sizeof(struct indexed_value), compare_desc);
+
+    // Apply Top-K: Restrict to top_k tokens
+    int k_count = k;
+    double topk_norm = 0.0;
+    for (int i = 0; i < k_count; i++) {
+        topk_norm += expf(arr[i].val);
+    }
+
+    // Apply Top-P: Find subset within Top-K that satisfies cumulative probability >= p
+    float cumulative_prob = 0.0f;
+    int p_count = 0;
+    for (int i = 0; i < k_count; i++) {
+        cumulative_prob += expf(arr[i].val) / topk_norm;
+        p_count++;
+        if (cumulative_prob >= p) {
+            break;
+        }
+    }
+
+    // Normalize within the selected subset (p_count tokens)
+    double subset_norm = 0.0;
+    for (int i = 0; i < p_count; i++) {
+        subset_norm += expf(arr[i].val);
+    }
+
+    // Scale the random coin [0,1) by the normalized sum of the top-p+k logits
+    coin *= subset_norm;
+
+    // Sample from the filtered subset
+    float cdf = 0.0f;
+    for (int i = 0; i < p_count; i++) {
+        cdf += expf(arr[i].val);
+        if (coin < cdf) {
+            int chosen = arr[i].idx;
+            free(arr);
+            return chosen;
+        }
+    }
+
+    // Fallback (rare in case of floating-point issues)
+    int chosen = arr[p_count - 1].idx;
+    free(arr);
+    return chosen;
 }
 
 int sample_softmax(const float* logits, int n, float coin) {
@@ -36,6 +133,20 @@ int sample_softmax(const float* logits, int n, float coin) {
         }
     }
     return n - 1; // in case of rounding errors
+}
+
+int sample_argmax(const float* logits, int n) {
+    assert(n > 0);
+
+    int idx = 0;
+    float max_val = logits[0];
+    for (int i = 1; i < n; ++i) {
+        if (logits[i] > max_val) {
+            max_val = logits[i];
+            idx = i;
+        }
+    }
+    return idx;
 }
 
 #endif

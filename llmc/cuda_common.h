@@ -75,7 +75,7 @@ inline void cudaFreeCheck(T** ptr, const char *file, int line) {
 enum PrecisionMode {
     PRECISION_FP32,
     PRECISION_FP16,
-    PRECISION_BF16
+    PRECISION_BF16,
 };
 
 // Specific configurations based on the enabled precision
@@ -170,40 +170,56 @@ inline void file_to_device(void* dest, FILE* src, size_t num_bytes, size_t buffe
      // allocate pinned buffer for faster, async transfer
      // from the docs (https://developer.download.nvidia.com/compute/DevZone/docs/html/C/doc/html/group__CUDART__HIGHLEVEL_ge439496de696b166ba457dab5dd4f356.html)
      // WC memory is a good option for buffers that will be written by the CPU and read by the device via mapped pinned memory or host->device transfers.
+    assert(num_bytes % sizeof(floatX) == 0);
+    size_t num_elements = num_bytes / sizeof(floatX);
+
     char* buffer_space;
-    cudaCheck(cudaMallocHost(&buffer_space, 2*buffer_size, cudaHostAllocWriteCombined));
+    cudaCheck(cudaMallocHost(&buffer_space, 2 * buffer_size * sizeof(floatX), cudaHostAllocWriteCombined));
     // split allocation in two
     void* read_buffer = buffer_space;
-    void* write_buffer = buffer_space + buffer_size;
+    void* write_buffer = buffer_space + (buffer_size * sizeof(floatX));
+    float* convFromBuffer = (float*) mallocCheck(buffer_size * sizeof(float));
+    // todo: convToBuffer is not really needed. we could directly copy data to the read buffer
+    floatX* convToBuffer = (floatX*) mallocCheck(buffer_size * sizeof(floatX));
 
     // prime the read buffer;
     char* gpu_write_ptr = (char*)dest;
-    size_t copy_amount = std::min(buffer_size, num_bytes);
-    freadCheck(read_buffer, 1, copy_amount, src);
+    size_t copy_amount = std::min(buffer_size, num_elements);
+    freadCheck(convFromBuffer, sizeof(float), copy_amount, src);
+    for (int i = 0; i < copy_amount; i++) {
+        convToBuffer[i] = static_cast<floatX>(convFromBuffer[i]);
+    }
+    cudaCheck(cudaMemcpy(read_buffer, convToBuffer, copy_amount * sizeof(floatX), cudaMemcpyHostToHost));
 
-    size_t rest_bytes = num_bytes - copy_amount;
-    size_t write_buffer_size = copy_amount;
+    size_t rest_elements = num_elements - copy_amount;
+    size_t write_buffer_size = copy_amount * sizeof(floatX);
     std::swap(read_buffer, write_buffer);
 
     // now the main loop; as long as there are bytes left
-    while(rest_bytes > 0) {
+    while(rest_elements > 0) {
         // initiate next read
-        copy_amount = std::min(buffer_size, rest_bytes);
+        copy_amount = std::min(buffer_size, rest_elements);
         cudaCheck(cudaMemcpyAsync(gpu_write_ptr, write_buffer, write_buffer_size, cudaMemcpyHostToDevice, stream));
         gpu_write_ptr += write_buffer_size;
         // while this is going on, read from disk
-        freadCheck(read_buffer, 1, copy_amount, src);
+        freadCheck(convFromBuffer, sizeof(float), copy_amount, src);
+        for (int i = 0; i < copy_amount; i++) {
+            convToBuffer[i] = static_cast<floatX>(convFromBuffer[i]);
+        }
+        cudaCheck(cudaMemcpy(read_buffer, convToBuffer, copy_amount * sizeof(floatX), cudaMemcpyHostToHost));
         cudaCheck(cudaStreamSynchronize(stream));     // wait for both buffers to be ready.
 
         std::swap(read_buffer, write_buffer);
-        rest_bytes -= copy_amount;
-        write_buffer_size = copy_amount;
+        rest_elements -= copy_amount;
+        write_buffer_size = copy_amount * sizeof(floatX);
     }
 
     // copy the last remaining write buffer to gpu
     cudaCheck(cudaMemcpyAsync(gpu_write_ptr, write_buffer, write_buffer_size, cudaMemcpyHostToDevice, stream));
     cudaCheck(cudaStreamSynchronize(stream));
     cudaCheck(cudaFreeHost(buffer_space));
+    free(convFromBuffer);
+    free(convToBuffer);
 }
 
 #endif // CUDA_COMMON_H
