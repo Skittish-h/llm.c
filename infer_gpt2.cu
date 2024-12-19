@@ -74,6 +74,8 @@ int main(int argc, char *argv[]) {
     gpt2_init_common(&model);
     gpt2_build_from_checkpoint(&model, load_filename);
 
+    model.requires_grad = true;
+
     // load tokenizer
     Tokenizer tokenizer;
     tokenizer_init(&tokenizer, "gpt2_tokenizer.bin");

@@ -298,6 +298,7 @@ typedef struct {
     float* m_memory;
     float* v_memory;
     float* master_weights;     // is NULL unless fp32 weights is enabled.
+    bool requires_grad;
     // the activations of the model, and their sizes
     ActivationTensors acts;
     TensorSpec acts_specs[NUM_ACTIVATION_TENSORS];
@@ -342,6 +343,7 @@ void gpt2_init_common(GPT2 *model) {
     model->m_memory = NULL;
     model->v_memory = NULL;
     model->master_weights = NULL;
+    model->requires_grad = true;
     // other default settings
     model->rng_state = 13371337 + multi_gpu_config.process_rank; // used in stochastic rounding
     model->use_master_weights = 1; // safe default: do keep master weights in fp32
@@ -365,9 +367,11 @@ void gpt2_allocate_weights(GPT2 *model) {
 }
 
 void gpt2_allocate_state(GPT2 *model, int B, int T) {
-    printf0("allocating %d MiB for parameter gradients\n", (int)round(model->num_parameters * sizeof(floatX) / (1024 * 1024)));
-    assert(model->grads_memory == nullptr);
-    model->grads_memory = malloc_and_point_parameters(&model->grads, model->param_elements, model->param_sizeof);
+    if (model->requires_grad) {
+        printf0("allocating %d MiB for parameter gradients\n", (int)round(model->num_parameters * sizeof(floatX) / (1024 * 1024)));
+        assert(model->grads_memory == nullptr);
+        model->grads_memory = malloc_and_point_parameters(&model->grads, model->param_elements, model->param_sizeof);
+    }
 
     // record the current B,T as well
     model->batch_size = B;
@@ -383,10 +387,12 @@ void gpt2_allocate_state(GPT2 *model, int B, int T) {
     cudaCheck(cudaMallocHost((void**)&model->cpu_losses, B * T * sizeof(float)));
 
     // initialise cpu scratch buffers for encoder backward
-    size_t num_c_groups = CEIL_DIV(model->config.channels, (WARP_SIZE * x128::size));
-    assert((size_t)(model->batch_size * model->seq_len) * num_c_groups < (1ULL<<31ULL)); // todo - maybe an issue for llama3-400B(?)
-    model->workload_indices = (int*)mallocCheck(sizeof(int) * model->batch_size * model->seq_len * num_c_groups);
-    model->bucket_info = (int4*)mallocCheck(sizeof(int4) * model->batch_size * model->seq_len * num_c_groups);
+    if (model->requires_grad) {
+        size_t num_c_groups = CEIL_DIV(model->config.channels, (WARP_SIZE * x128::size));
+        assert((size_t)(model->batch_size * model->seq_len) * num_c_groups < (1ULL<<31ULL)); // todo - maybe an issue for llama3-400B(?)
+        model->workload_indices = (int*)mallocCheck(sizeof(int) * model->batch_size * model->seq_len * num_c_groups);
+        model->bucket_info = (int4*)mallocCheck(sizeof(int4) * model->batch_size * model->seq_len * num_c_groups);
+    }
 
     // cudaMallocConditionallyManaged can fall back to cudaMallocManaged if not enough memory on device
     // and returns a status code of 1 if it had to fall back, in that case we want to print warning.
@@ -394,13 +400,16 @@ void gpt2_allocate_state(GPT2 *model, int B, int T) {
 
     // we will now init the optimizer states and master weights
     // this is usually a substantial amount of memory allocation right here.
+
     size_t shard_num_parameters = multi_gpu_config.shard_num_parameters; // num parameters we are responsible for
-    printf0("allocating %zu MiB for AdamW optimizer state m\n", (shard_num_parameters * sizeof(float)) >> 20);
-    printf0("allocating %zu MiB for AdamW optimizer state v\n", (shard_num_parameters * sizeof(float)) >> 20);
-    assert(model->m_memory == nullptr);
-    assert(model->v_memory == nullptr);
-    memory_status |= cudaMallocConditionallyManaged((void**)&model->m_memory, shard_num_parameters * sizeof(float));
-    memory_status |= cudaMallocConditionallyManaged((void**)&model->v_memory, shard_num_parameters * sizeof(float));
+    if (model->requires_grad) {
+        printf0("allocating %zu MiB for AdamW optimizer state m\n", (shard_num_parameters * sizeof(float)) >> 20);
+        printf0("allocating %zu MiB for AdamW optimizer state v\n", (shard_num_parameters * sizeof(float)) >> 20);
+        assert(model->m_memory == nullptr);
+        assert(model->v_memory == nullptr);
+        memory_status |= cudaMallocConditionallyManaged((void**)&model->m_memory, shard_num_parameters * sizeof(float));
+        memory_status |= cudaMallocConditionallyManaged((void**)&model->v_memory, shard_num_parameters * sizeof(float));
+    }
 
     if (model->use_master_weights == 1) {
         assert(model->master_weights == nullptr);
