@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
         gpt2_forward(&model, gen_tokens, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
         // get the V-dimensional vector probs[0, t-1, :]
         floatX* logits = model.acts.output + (t - 1) * model.config.padded_vocab_size;
-        // move probs back to CPU and sample (note we only move the first vocab_size logits, ignoring the padding)
+        // move logits back to CPU and sample (note we only move the first vocab_size logits, ignoring the padding)
         cudaCheck(cudaMemcpy(cpu_logits_raw, logits, model.config.vocab_size * sizeof(floatX), cudaMemcpyDeviceToHost));
         // convert to FP32 into cpu_logits (this does nothing useful if floatX == float)
         for (int i = 0; i < model.config.vocab_size; i++) {
