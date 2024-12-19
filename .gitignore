@@ -13,6 +13,8 @@ dev/data/mmlu/
 dev/data/tinyshakespeare/
 dev/data/tinystories/
 
+converted_model
+
 # binaries
 test_gpt2
 test_gpt2cu
