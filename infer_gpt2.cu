@@ -1,10 +1,68 @@
 #include <iostream>
+#include <string>
+#include <vector>
+#include <cstdlib>
 
 #define TESTING
 #include "train_gpt2.cu"
 
 
+struct ParsedArgs {
+    std::vector<int> tokens;
+    int n_gen;
+    int top_k;    // New flag: top_k
+    float temp;   // New flag: temperature
+};
+
+ParsedArgs parse_args(int argc, char *argv[]) {
+    ParsedArgs result;
+    result.n_gen = 100;
+    result.top_k = 50;  
+    result.temp = 1.0;
+
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+
+        if (arg == "--tokens") {
+            int j = i + 1;
+            for (; j < argc; ++j) {
+                std::string nextArg = argv[j];
+                if (nextArg.rfind("--", 0) == 0) {
+                    break;
+                }
+                result.tokens.push_back(std::atoi(nextArg.c_str()));
+            }
+            i = j - 1;
+        } else if (arg == "--n_gen") {
+            if (i + 1 < argc) {
+                result.n_gen = std::atoi(argv[i + 1]);
+                i += 1;
+            } else {
+                std::cerr << "Error: --n_gen flag provided but no integer value found.\n";
+            }
+        } else if (arg == "--top_k") {
+            if (i + 1 < argc) {
+                result.top_k = std::atoi(argv[i + 1]);
+                i += 1;
+            } else {
+                std::cerr << "Error: --top_k flag provided but no integer value found.\n";
+            }
+        } else if (arg == "--temp") {
+            if (i + 1 < argc) {
+                result.temp = std::atof(argv[i + 1]);
+                i += 1;
+            } else {
+                std::cerr << "Error: --temp flag provided but no float value found.\n";
+            }
+        }
+    }
+
+    return result;
+}
+
 int main(int argc, char *argv[]) {
+    ParsedArgs args = parse_args(argc, argv);
+
     // this is a very important line
     common_start(false, true);
 
@@ -52,27 +110,18 @@ int main(int argc, char *argv[]) {
     float* cpu_logits = (float*) mallocCheck(model.config.vocab_size * sizeof(float));
     int eot_token = tokenizer.eot_token;
 
-    for(int i = 0; i < B * T; ++i) {
+    for(size_t i = 0; i < B * T; ++i) {
         gen_tokens[i] = eot_token;
     }
 
-    // [15496, 11, 314, 716, 32451, 20119, 290, 314, 588]
-    gen_tokens[0] = 15496;
-    gen_tokens[1] = 11;
-    gen_tokens[2] = 314;
-    gen_tokens[3] = 716;
-    gen_tokens[4] = 32451;
-    gen_tokens[5] = 20119;
-    gen_tokens[6] = 290;
-    gen_tokens[7] = 314;
-    gen_tokens[8] = 588;
+    for (size_t i = 0; i < args.tokens.size() && i < B * T; ++i) {
+        gen_tokens[i] = args.tokens[i];
+    }
 
-    int genT = 128;
-    float temp = 1;
-    float topk = 1;
+    int genT = args.n_gen + args.tokens.size();
     unsigned long long sample_rng_state = 42;
 
-    for (int t = 9; t < genT; t++) {
+    for (int t = args.tokens.size(); t < genT; t++) {
         gpt2_forward(&model, gen_tokens, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
         // get the V-dimensional vector probs[0, t-1, :]
         floatX* logits = model.acts.output + (t - 1) * model.config.padded_vocab_size;
@@ -84,7 +133,7 @@ int main(int argc, char *argv[]) {
         }
         // sample the next token
         float coin = random_f32(&sample_rng_state);
-        int next_token = sample_softmax_topk(cpu_logits, model.config.vocab_size, coin, topk, temp);
+        int next_token = sample_softmax_topk(cpu_logits, model.config.vocab_size, coin, args.top_k, args.temp);
         // int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
         gen_tokens[t] = next_token;
 
