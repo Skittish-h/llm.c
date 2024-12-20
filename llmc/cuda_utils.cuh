@@ -84,7 +84,7 @@ typedef Packed128<floatX> x128;
 
 // enumerator to indentify the datatype of a tensor.
 enum class DType : uint8_t {
-    FP32, FP16, BF16
+    FP32, FP16, BF16, INT16, INT8,
 };
 
 // Given a datatype enum, returns the underlying number of bytes
@@ -97,6 +97,10 @@ size_t sizeof_dtype(DType type) {
             return sizeof(half);
         case DType::BF16:
             return sizeof(nv_bfloat16);
+        case DType::INT16:
+            return sizeof(int16_t);
+        case DType::INT8:
+            return sizeof(int8_t);
         default: // handle or get compiler warning
             fprintf(stderr, "Unknown datatype\n");
             exit(EXIT_FAILURE);
@@ -106,7 +110,8 @@ size_t sizeof_dtype(DType type) {
 DType dtype_of(float* f) { return DType::FP32; }
 DType dtype_of(nv_bfloat16 * f) { return DType::BF16; }
 DType dtype_of(half * f) { return DType::FP16; }
-
+DType dtype_of(int16_t * f) { return DType::INT16; }
+DType dtype_of(int8_t * f) { return DType::INT8; }
 
 
 // ----------------------------------------------------------------------------
@@ -129,6 +134,17 @@ __device__ float cast_value<float, half>(half val) {
 template<>
 __device__ float cast_value<float, __nv_bfloat16>(__nv_bfloat16 val) {
     return __bfloat162float(val);
+}
+
+
+template<>
+__device__ float cast_value<float, int16_t>(int16_t val) {
+    return static_cast<float>(val);
+}
+
+template<>
+__device__ float cast_value<float, int8_t>(int8_t val) {
+    return static_cast<float>(val);
 }
 
 template<typename Td, typename Ts>
@@ -281,6 +297,12 @@ __device__ __forceinline__ void stochastic_rounding(float in, half *out, unsigne
 }
 __device__ __forceinline__ void stochastic_rounding(float in, float *out, unsigned int random) {
     *out = in; // dummy function for when floatX is float (FP32 mode)
+}
+__device__ __forceinline__ void stochastic_rounding(float in, int16_t *out, unsigned int random) {
+    *out = in; // dummy function for when floatX is int8_t
+}
+__device__ __forceinline__ void stochastic_rounding(float in, int8_t *out, unsigned int random) {
+    *out = in; // dummy function for when floatX is int8_t
 }
 
 #endif

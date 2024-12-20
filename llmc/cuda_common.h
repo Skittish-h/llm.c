@@ -76,16 +76,26 @@ enum PrecisionMode {
     PRECISION_FP32,
     PRECISION_FP16,
     PRECISION_BF16,
+    PRECISION_INT8,
 };
 
 // Specific configurations based on the enabled precision
 #if defined(ENABLE_FP32)
 typedef float floatX;
 #define PRECISION_MODE PRECISION_FP32
-// use fp16 (note: this may require gradient scaler, currently not implemented!)
+
 #elif defined(ENABLE_FP16)
 typedef half floatX;
 #define PRECISION_MODE PRECISION_FP16
+
+#elif defined(ENABLE_INT16)
+typedef int16_t floatX;
+#define PRECISION_MODE PRECISION_INT8
+
+#elif defined(ENABLE_INT8)
+typedef int8_t floatX;
+#define PRECISION_MODE PRECISION_INT8
+
 #else // Default to bfloat16
 typedef __nv_bfloat16 floatX;
 #define PRECISION_MODE PRECISION_BF16

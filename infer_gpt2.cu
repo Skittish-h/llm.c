@@ -78,6 +78,29 @@ ParsedArgs parse_args(int argc, char *argv[]) {
     return result;
 }
 
+// Assuming model->params.fcw is on the GPU and has at least 15 weights
+void print_first_15_weights(floatX* weights) {
+
+    // Allocate CPU memory to store 15 weights
+    floatX* cpu_weights = (floatX*)malloc(15 * sizeof(floatX));
+    if (!cpu_weights) {
+        fprintf(stderr, "Failed to allocate CPU memory for weights\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Copy the first 15 weights from GPU to CPU
+    cudaMemcpy(cpu_weights, weights, 15 * sizeof(floatX), cudaMemcpyDeviceToHost);
+
+    // Print the weights
+    printf("First 15 weights:\n");
+    for (int i = 0; i < 15; i++) {
+        printf("%f\n", (float)cpu_weights[i]); // Cast to float if floatX is half or other type
+    }
+
+    // Free the CPU memory
+    free(cpu_weights);
+}
+
 int main(int argc, char *argv[]) {
     ParsedArgs args = parse_args(argc, argv);
 
@@ -91,6 +114,10 @@ int main(int argc, char *argv[]) {
     GPT2 model;
     gpt2_init_common(&model);
     gpt2_build_from_checkpoint(&model, load_filename);
+
+
+    print_first_15_weights(model.params.fcw);
+
 
     model.requires_grad = false;
 
