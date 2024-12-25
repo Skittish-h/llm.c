@@ -2,10 +2,13 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <fstream>
+#include "packages/json.hpp"
 
 #define TESTING
 #include "train_gpt2.cu"
 
+using json = nlohmann::json;
 
 struct ParsedArgs {
     std::vector<int> tokens;
@@ -142,6 +145,8 @@ int main(int argc, char *argv[]) {
     int genT = args.n_gen + args.tokens.size();
     unsigned long long sample_rng_state = (unsigned long long)args.seed;
 
+    json log_data = json::array(); // Store results in JSON format
+
     // print prompt
     for (size_t i = 0; i < args.tokens.size(); ++i) {
         const char* token_str = tokenizer_decode(&tokenizer, args.tokens[i]);
@@ -168,6 +173,20 @@ int main(int argc, char *argv[]) {
         logprob_sum += logprob;
 
         const char* token_str = tokenizer_decode(&tokenizer, next_token);
+
+        // Log data for this token
+        json token_data;
+        token_data["step"] = t;
+        token_data["token"] = next_token;
+        token_data["text"] = token_str;
+        token_data["logprob"] = logprob;
+
+        json logit_data = json::array();
+        for (int i = 0; i < V; i++) logit_data.push_back(cpu_logits[i]);
+        token_data["logits"] = logit_data;
+
+        log_data.push_back(token_data);
+
         safe_printf(token_str);
         fflush(stdout);
     }
@@ -175,8 +194,18 @@ int main(int argc, char *argv[]) {
     float avg_logprob = logprob_sum / args.n_gen;
     float perplexity = expf(-avg_logprob);
 
-    printf("\nAvg logp: %f\n", avg_logprob);
-    printf("Perplexity: %f\n", perplexity);
+    std::cout << "\nAvg logp: " << avg_logprob << "\n";
+    std::cout << "Perplexity: " << perplexity << "\n";
+
+    json metrics;
+    metrics["avg_logprob"] = avg_logprob;
+    metrics["perplexity"] = perplexity;
+    log_data.push_back(metrics);
+
+    // Write log data to file
+    std::ofstream outfile("generation_log.json");
+    outfile << log_data.dump(4); // Pretty print JSON
+    outfile.close();
 
     gpt2_free(&model);
     tokenizer_free(&tokenizer);
