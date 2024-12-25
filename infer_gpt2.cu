@@ -181,6 +181,10 @@ int main(int argc, char *argv[]) {
         token_data["text"] = token_str;
         token_data["logprob"] = logprob;
 
+        json input_tokens = json::array();
+        for (int i = 0; i < t; i++) input_tokens.push_back(gen_tokens[i]);
+        token_data["input_tokens"] = input_tokens;
+
         json logit_data = json::array();
         for (int i = 0; i < V; i++) logit_data.push_back(cpu_logits[i]);
         token_data["logits"] = logit_data;
