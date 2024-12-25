@@ -3,7 +3,7 @@
 #include <vector>
 #include <cstdlib>
 #include <fstream>
-#include "packages/json.hpp"
+#include "packages/json.h"
 
 #define TESTING
 #include "train_gpt2.cu"
