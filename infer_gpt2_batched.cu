@@ -240,8 +240,8 @@ int main(int argc, char *argv[]) {
     assert(0 <= T && T <= maxT);
     // validate B,T are not larger than the values used at initialisation
     // (smaller B,T are okay for inference only)
-    if (B > model->batch_size || T > model->seq_len) {
-        printf("Model: B=%d T=%d, Desired: B=%d T=%d\n", model->batch_size, model->seq_len, (int)B, (int)T);
+    if (B > model.batch_size || T > model.seq_len) {
+        printf("Model: B=%d T=%d, Desired: B=%d T=%d\n", model.batch_size, model.seq_len, (int)B, (int)T);
         exit(EXIT_FAILURE);
     }
 
@@ -260,7 +260,7 @@ int main(int argc, char *argv[]) {
     {
         promptloader_next_batch(&loader);
         // copy inputs/targets to the model
-        cudaCheck(cudaMemcpy(model->inputs, loader.inputs, B * T * sizeof(int), cudaMemcpyHostToDevice));
+        cudaCheck(cudaMemcpy(model.inputs, loader.inputs, B * T * sizeof(int), cudaMemcpyHostToDevice));
         // validate inputs, all indices must be in the range [0, V)
         // we can do this while the copies are already underway
         tokenCheck(inputs, B*T, V);
@@ -286,7 +286,7 @@ int main(int argc, char *argv[]) {
             int next_token = sample_softmax_topk_topp(cpu_logits, model.config.vocab_size, coin, args.top_k, args.top_p, args.temp);
             // int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
             
-            cudaCheck(cudaMemcpy(model->inputs + (t - 1), &next_token, sizeof(int), cudaMemcpyHostToDevice));
+            cudaCheck(cudaMemcpy(model.inputs + (t - 1), &next_token, sizeof(int), cudaMemcpyHostToDevice));
 
             float logprob = compute_logprob(cpu_logits, model.config.vocab_size, next_token);
             logprob_sum += logprob;
