@@ -240,14 +240,15 @@ int main(int argc, char *argv[]) {
     assert(0 <= T && T <= maxT);
     // validate B,T are not larger than the values used at initialisation
     // (smaller B,T are okay for inference only)
-    if (B > model.batch_size || T > model.seq_len) {
-        printf("Model: B=%d T=%d, Desired: B=%d T=%d\n", model.batch_size, model.seq_len, (int)B, (int)T);
-        exit(EXIT_FAILURE);
-    }
 
     PromptLoader loader;
     promptloader_init(&loader, args.in, B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
     gpt2_allocate_state(&model, B, T);
+
+    if (B > model.batch_size || T > model.seq_len) {
+        printf("Model: B=%d T=%d, Desired: B=%d T=%d\n", model.batch_size, model.seq_len, (int)B, (int)T);
+        exit(EXIT_FAILURE);
+    }
  
     double logprob_sum = 0;
     floatX* cpu_logits_raw = (floatX*) mallocCheck(model.config.vocab_size * sizeof(floatX));
