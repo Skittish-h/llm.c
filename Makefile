@@ -254,7 +254,7 @@ ifeq ($(NVCC),)
     $(info ✗ nvcc not found, skipping GPU/CUDA builds)
 else
     $(info ✓ nvcc found, including GPU/CUDA support)
-    TARGETS += train_gpt2cu test_gpt2cu infer_gpt2cu train_gpt2fp32cu test_gpt2fp32cu $(NVCC_CUDNN)
+    TARGETS += train_gpt2cu test_gpt2cu infer_gpt2cu infer_gpt2_batchedcu train_gpt2fp32cu test_gpt2fp32cu $(NVCC_CUDNN)
 endif
 
 $(info ---------------------------------------------)
