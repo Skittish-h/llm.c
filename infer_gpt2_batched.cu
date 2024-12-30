@@ -263,7 +263,7 @@ int main(int argc, char *argv[]) {
         cudaCheck(cudaMemcpy(model.inputs, loader.inputs, B * T * sizeof(int), cudaMemcpyHostToDevice));
         // validate inputs, all indices must be in the range [0, V)
         // we can do this while the copies are already underway
-        tokenCheck(inputs, B*T, V);
+        tokenCheck(loader.inputs, B*T, V);
 
         int t = 1;
         while (t < T && loader.inputs[t] != eot_token)
