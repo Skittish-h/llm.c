@@ -150,6 +150,7 @@ int main(int argc, char *argv[]) {
     unsigned long long sample_rng_state = (unsigned long long)args.seed;
 
     promptloader_next_batch(&loader);
+    promptloader_next_batch(&loader);
     int t = 1;
     while (t < T && loader.inputs[t] != eot_token)
     {
