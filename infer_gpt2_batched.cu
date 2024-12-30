@@ -269,7 +269,7 @@ int main(int argc, char *argv[]) {
         while (t < T && loader.inputs[t] != eot_token)
         {
             safe_printf(tokenizer_decode(&tokenizer, loader.inputs[t]));
-            t += 1;
+            t++;
         }
         for (; t < T; t++) {
             gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
