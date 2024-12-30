@@ -17,48 +17,38 @@ streams of uint16 numbers indicating the token ids.
 
 import argparse
 import os
-
 import tiktoken
-
 from data_common import download_file, write_datafile
 
 # -----------------------------------------------------------------------------
 DATA_CACHE_DIR = os.path.join(os.path.dirname(__file__), "testtest")
 
-def download():
-    """Downloads the testtest dataset to DATA_CACHE_DIR"""
-    os.makedirs(DATA_CACHE_DIR, exist_ok=True)
-    # download the TinyShakespeare dataset, unless it's already downloaded
-    data_url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-    data_filename = os.path.join(DATA_CACHE_DIR, "testtest.txt")
-    if not os.path.exists(data_filename):
-        print(f"Downloading {data_url} to {data_filename}...")
-        download_file(data_url, data_filename)
-    else:
-        print(f"{data_filename} already exists, skipping download...")
-
-def tokenize():
+def tokenize(n_tokens: int, input_filename: str):
     enc = tiktoken.get_encoding("gpt2")
     encode = lambda s: enc.encode_ordinary(s)
     eot = enc._special_tokens['<|endoftext|>'] # end of text token
 
-    data_filename = os.path.join(DATA_CACHE_DIR, "testtest.txt")
+    data_filename = os.path.join(DATA_CACHE_DIR, input_filename)
     text = open(data_filename, 'r').read()
-    # let's treat every individual chunk of text as a separate "document"
-    sections = text.split("\n\n")
+
+    prompts = text.split("\n")
     tokens = []
-    for i, s in enumerate(sections):
+    for i, p in enumerate(prompts):
         tokens.append(eot)
-        # there was a mild bug where I originally intended to remove \n\n, but instead just added
-        # the EOT right after each \n\n, so I'm keeping that behavior for backwards compatibility
-        # therefore we have to here add an extra \n\n at the end of each section, except the last
-        spad = s + "\n\n" if i != len(sections) - 1 else s
-        tokens.extend(encode(spad))
+        tokens.extend(encode(p))
+        tokens += [eot] * (n_tokens - len(p) - 1)
+        tokens.append(len(p))
 
     # save to file
-    tokens_filename = os.path.join(DATA_CACHE_DIR, "testest.bin")
+    tokens_filename = os.path.join(DATA_CACHE_DIR, f"test_{n_tokens}.bin")
     write_datafile(tokens_filename, tokens)
+    plain_filename = os.path.join(DATA_CACHE_DIR, f"test_{n_tokens}.text")
+    with open(plain_filename, 'w') as f:
+        f.write(f'{tokens}')
 
 if __name__ == "__main__":
-    # download()
-    tokenize()
+    parser = argparse.ArgumentParser(description="GPU project test set data preprocessing")
+    parser.add_argument("-t", "--tokens", type=int, default=1024, help="Number of tokens for input")
+    parser.add_argument("-i", "--input", type=str, default=os.path.join(DATA_CACHE_DIR, "input.txt"), help="Path to input file to tokenize")
+    args = parser.parse_args()
+    tokenize(args.tokens, args.input)
