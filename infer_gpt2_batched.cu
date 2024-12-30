@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
             t += 1;
         }
         t = 1;
-        printf('/n')
+        printf("\n");
     }
     
     promptloader_next_batch(&loader);
