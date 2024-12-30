@@ -149,11 +149,11 @@ int main(int argc, char *argv[]) {
 
     unsigned long long sample_rng_state = (unsigned long long)args.seed;
 
-    printf('a')
+    printf('a');
     for (size_t i = 0; i < 16; i++)
     {
         int t = 1;
-        printf("You entered: %d", i)
+        printf("You entered: %d", i);
         promptloader_next_batch(&loader);
         while (t < T && loader.inputs[t] != eot_token)
         {
@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
         }
         t = 1;
     }
-    printf('b')
+    printf('b');
     
     promptloader_next_batch(&loader);
     int t = 1;
