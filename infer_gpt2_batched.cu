@@ -2,10 +2,10 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
-#include "llm.c/promptlaoder.h"
 
 #define TESTING
 #include "train_gpt2.cu"
+#include "llm.c/promptloader.h"
 
 struct ParsedArgs {
     std::vector<int> tokens;
