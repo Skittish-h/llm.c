@@ -273,7 +273,7 @@ int main(int argc, char *argv[]) {
             t++;
         }
         for (; t < T; t++) {
-            printf("a")
+            printf("a");
             gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
             // get the V-dimensional vector probs[0, t-1, :]
             floatX* logits = model.acts.output + (t - 1) * model.config.padded_vocab_size;
