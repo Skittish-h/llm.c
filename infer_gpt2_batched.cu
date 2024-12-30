@@ -142,7 +142,6 @@ int main(int argc, char *argv[]) {
     promptloader_init(&loader, args.in, B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
     gpt2_allocate_state(&model, B, T);
  
-    int gen_tokens[B * T];
     double logprob_sum = 0;
     floatX* cpu_logits_raw = (floatX*) mallocCheck(model.config.vocab_size * sizeof(floatX));
     float* cpu_logits = (float*) mallocCheck(model.config.vocab_size * sizeof(float));
@@ -154,6 +153,7 @@ int main(int argc, char *argv[]) {
     int t = 1;
     while (t < T && loader.inputs[t] != eot_token)
     {
+        safe_printf(tokenizer_decode(&tokenizer, loader.inputs[t]));
         t += 1;
     }
     for (; t < T; t++) {
@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
         float coin = random_f32(&sample_rng_state);
         int next_token = sample_softmax_topk_topp(cpu_logits, model.config.vocab_size, coin, args.top_k, args.top_p, args.temp);
         // int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
-        gen_tokens[t] = next_token;
+        loader.inputs[t] = next_token;
 
         float logprob = compute_logprob(cpu_logits, model.config.vocab_size, next_token);
         logprob_sum += logprob;
