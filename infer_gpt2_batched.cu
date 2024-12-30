@@ -148,10 +148,11 @@ int main(int argc, char *argv[]) {
     int eot_token = tokenizer.eot_token;
 
     unsigned long long sample_rng_state = (unsigned long long)args.seed;
-    
+
     int t = 1;
     for (size_t i = 0; i < 16; i++)
     {
+        printf("You entered: %d", i)
         promptloader_next_batch(&loader);
         while (t < T && loader.inputs[t] != eot_token)
         {
