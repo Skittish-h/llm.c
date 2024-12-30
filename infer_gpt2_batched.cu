@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
     int T = 32;
     assert(0 <= T && T <= maxT);
 
-    PrompLoader loader;
+    PromptLoader loader;
     promptloader_init(&loader, args.in, B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
     gpt2_allocate_state(&model, B, T);
  
@@ -147,6 +147,8 @@ int main(int argc, char *argv[]) {
     floatX* cpu_logits_raw = (floatX*) mallocCheck(model.config.vocab_size * sizeof(floatX));
     float* cpu_logits = (float*) mallocCheck(model.config.vocab_size * sizeof(float));
     int eot_token = tokenizer.eot_token;
+
+    unsigned long long sample_rng_state = (unsigned long long)args.seed;
 
     promptloader_next_batch(&loader);
     int t = 1;
@@ -185,7 +187,7 @@ int main(int argc, char *argv[]) {
     printf("Perplexity: %f\n", perplexity);
 
     gpt2_free(&model);
-    promptloader_free(&loader)
+    promptloader_free(&loader);
     tokenizer_free(&tokenizer);
 
     return 0;
