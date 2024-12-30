@@ -149,8 +149,7 @@ int main(int argc, char *argv[]) {
 
     unsigned long long sample_rng_state = (unsigned long long)args.seed;
 
-    printf("a");
-    for (size_t i = 0; i < 16; i++)
+    for (size_t i = 0; i < 128; i++)
     {
         int t = 1;
         printf("You entered: %d", i);
@@ -161,8 +160,8 @@ int main(int argc, char *argv[]) {
             t += 1;
         }
         t = 1;
+        printf('/n')
     }
-    printf("b");
     
     promptloader_next_batch(&loader);
     int t = 1;
