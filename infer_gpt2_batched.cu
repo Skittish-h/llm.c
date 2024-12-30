@@ -5,7 +5,7 @@
 
 #define TESTING
 #include "train_gpt2.cu"
-#include "llm.c/promptloader.h"
+#include "llmc/promptloader.h"
 
 struct ParsedArgs {
     std::vector<int> tokens;
