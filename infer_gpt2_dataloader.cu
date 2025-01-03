@@ -257,7 +257,7 @@ int main(int argc, char *argv[]) {
 
     unsigned long long sample_rng_state = (unsigned long long)args.seed;
 
-    printf("\n\n\n");
+    printf("\n---\n");
 
     for (size_t i = 0; i < 2; i++)
     {
@@ -269,7 +269,7 @@ int main(int argc, char *argv[]) {
         tokenCheck(loader.inputs, B*T, V);
 
         printf("Prompt:\n");
-        int t = 1;
+        int t = 0;
         while (t < T && loader.inputs[t] != eot_token)
         {
             safe_printf(tokenizer_decode(&tokenizer, loader.inputs[t]));
@@ -299,7 +299,7 @@ int main(int argc, char *argv[]) {
             safe_printf(token_str);
             fflush(stdout);
         }
-        printf("\n\n\n");
+        printf("\n\---\n");
     }
     fflush(stdout);
 

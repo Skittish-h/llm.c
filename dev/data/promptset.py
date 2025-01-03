@@ -27,7 +27,6 @@ def tokenize(n_tokens: int, input_filename: str):
     prompts = text.split("\n")
     tokens = []
     for i, p in enumerate(prompts):
-        tokens.append(eot)
         temp = encode(p)
         tokens.extend(temp)
         tokens.extend([eot] * (n_tokens - len(temp) - 1))
