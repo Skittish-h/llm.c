@@ -268,8 +268,7 @@ int main(int argc, char *argv[]) {
         // we can do this while the copies are already underway
         tokenCheck(loader.inputs, B*T, V);
 
-        printf("Prompt:\n")
-
+        printf("Prompt:\n");
         int t = 1;
         while (t < T && loader.inputs[t] != eot_token)
         {
