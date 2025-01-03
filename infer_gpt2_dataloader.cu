@@ -3,8 +3,8 @@
 #include <vector>
 #include <cstdlib>
 
+// #define TESTING
 #include "llmc/promptloader.h"
-#define TESTING = 1
 #include "train_gpt2.cu"
 
 struct ParsedArgs {
