@@ -299,7 +299,7 @@ int main(int argc, char *argv[]) {
             safe_printf(token_str);
             fflush(stdout);
         }
-        printf("\n\---\n");
+        printf("\n---\n");
     }
     fflush(stdout);
 
