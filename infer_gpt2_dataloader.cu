@@ -257,6 +257,8 @@ int main(int argc, char *argv[]) {
 
     unsigned long long sample_rng_state = (unsigned long long)args.seed;
 
+    printf("\n\n\n");
+
     for (size_t i = 0; i < 2; i++)
     {
         promptloader_next_batch(&loader);
@@ -266,13 +268,15 @@ int main(int argc, char *argv[]) {
         // we can do this while the copies are already underway
         tokenCheck(loader.inputs, B*T, V);
 
+        printf("Prompt:\n")
+
         int t = 1;
         while (t < T && loader.inputs[t] != eot_token)
         {
             safe_printf(tokenizer_decode(&tokenizer, loader.inputs[t]));
-            fflush(stdout);
             t++;
         }
+        printf("\nGenerated Text\n");
         for (; t < T; t++) {
             gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
             // get the V-dimensional vector probs[0, t-1, :]
@@ -296,9 +300,9 @@ int main(int argc, char *argv[]) {
             safe_printf(token_str);
             fflush(stdout);
         }
-        printf("\n");
-        fflush(stdout);
+        printf("\n\n\n");
     }
+    fflush(stdout);
 
     float avg_logprob = logprob_sum / args.n_gen;
     float perplexity = expf(-avg_logprob);
