@@ -275,7 +275,7 @@ int main(int argc, char *argv[]) {
             safe_printf(tokenizer_decode(&tokenizer, loader.inputs[t]));
             t++;
         }
-        printf("\nGenerated Text\n");
+        printf("\nGenerated Text:\n");
         for (; t < T; t++) {
             gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
             // get the V-dimensional vector probs[0, t-1, :]
