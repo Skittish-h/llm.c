@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
     gpt2_build_from_checkpoint(&model, load_filename);
     model.requires_grad = false;
 
-    assert(0 <= T && T <= maxT);
+    assert(0 <= T && T <= model.config.max_seq_len);
     gpt2_allocate_state(&model, B, T);
 
     // init multi gpu config
