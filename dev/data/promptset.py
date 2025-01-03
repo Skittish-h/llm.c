@@ -29,7 +29,7 @@ def tokenize(n_tokens: int, input_filename: str):
     for i, p in enumerate(prompts):
         temp = encode(p)
         tokens.extend(temp)
-        tokens.extend([eot] * (n_tokens - len(temp) - 1))
+        tokens.extend([eot] * (n_tokens - len(temp)))
 
     # save to file
     tokens_filename = os.path.join(DATA_CACHE_DIR, f"prompt_{n_tokens}.bin")
