@@ -25,7 +25,7 @@ ParsedArgs parse_args(int argc, char *argv[]) {
     result.temp = 1.0;
     result.top_p = 1.0;  // Default value for top_p
     result.seed = 42;    // Default value for seed (-1 means not set)
-    result.in = "dev/data/promptset/prompt_32.bin";
+    result.in = "dev/data/promptset/prompt_64.bin";
     result.out = "out.txt";
 
     for (int i = 1; i < argc; ++i) {
