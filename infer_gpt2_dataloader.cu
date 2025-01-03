@@ -3,7 +3,7 @@
 #include <vector>
 #include <cstdlib>
 
-// #define TESTING
+#define TESTING = 0
 #include "llmc/promptloader.h"
 #include "train_gpt2.cu"
 
