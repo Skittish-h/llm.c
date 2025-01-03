@@ -207,6 +207,7 @@ int main(int argc, char *argv[]) {
     int T = 64;
 
     // load model
+    printf("Model is the problem");
     const char* load_filename = "gpt2_124M.bin";
     GPT2 model;
     gpt2_init_common(&model);
@@ -231,10 +232,12 @@ int main(int argc, char *argv[]) {
     set_zero_configs(&multi_gpu_config, 0, model.num_parameters);
 
     // load tokenizer
+    printf("Tokenizer is the problem");
     Tokenizer tokenizer;
     tokenizer_init(&tokenizer, "gpt2_tokenizer.bin");
 
-     // load promptloader, T is read from the dataset file
+    // load promptloader, T is read from the dataset file
+    printf("Loader is the problem");
     PromptLoader loader;
     promptloader_init(&loader, args.in, B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
 
