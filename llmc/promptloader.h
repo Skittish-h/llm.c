@@ -137,12 +137,12 @@ void promptloader_init(PromptLoader *loader,
         int64_t shard_ntok = promptloader_load_shard_(loader, shard_index);
         // we need at least one batch/shard, the way things are written right now.
         // can be relaxed a lot later.
-        assert(shard_ntok >= (int64_t) (num_processes * B * T + 1));
+        assert(shard_ntok >= (int64_t) (num_processes * B * T));
         ntok_total += shard_ntok;
     }
     // debugging prints
-    printf("DataLoader: filename_pattern: %s\n", filename_pattern);
-    printf("DataLoader: Found %ld tokens across %zu shards\n", ntok_total, loader->glob_result.gl_pathc);
+    // printf("DataLoader: filename_pattern: %s\n", filename_pattern);
+    // printf("DataLoader: Found %ld tokens across %zu shards\n", ntok_total, loader->glob_result.gl_pathc);
 
     // allocate all the space we'll need
     loader->buffer = (uint16_t*)mallocCheck(B * T * sizeof(uint16_t));

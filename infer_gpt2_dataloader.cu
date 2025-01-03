@@ -7,6 +7,7 @@
 #include "train_gpt2.cu"
 #include "llmc/promptloader.h"
 
+
 struct ParsedArgs {
     std::vector<int> tokens;
     int n_gen;
@@ -190,7 +191,6 @@ void gpt2_forward_copyfree(GPT2 *model, size_t B, size_t T) {
                                     B * T, C, main_stream);
         }
     }
-
     matmul_forward_cublaslt(acts.output, acts.lnf, params.wte, NULL, B, T, C, Vp, main_stream);
     cudaCheck(cudaDeviceSynchronize());
 }
@@ -201,19 +201,23 @@ int main(int argc, char *argv[]) {
     // this is a very important line
     common_start(false, true);
 
-    //todo: extract from args
-    const char* load_filename = "gpt2_124M.bin";
+    // batch size
+    int B = 1;
+    // token length, need to be the same as the prompt datafile
+    // TODO: set automatically from datafile header
+    int T = 64;
 
     // load model
+    const char* load_filename = "gpt2_124M.bin";
     GPT2 model;
     gpt2_init_common(&model);
     gpt2_build_from_checkpoint(&model, load_filename);
     model.requires_grad = false;
 
-    // load tokenizer
-    Tokenizer tokenizer;
-    tokenizer_init(&tokenizer, "gpt2_tokenizer.bin");
+    assert(0 <= T && T <= maxT);
+    gpt2_allocate_state(&model, B, T);
 
+    // init multi gpu config
     char nccl_init_method[256] = "mpi";  // "tcp" or "fs" or "mpi"
     char server_ip[256] = "";  // doesn't matter when using MPI
     char fs_path[256] = "";  // doesn't matter when using MPI
@@ -227,57 +231,52 @@ int main(int argc, char *argv[]) {
     );
     set_zero_configs(&multi_gpu_config, 0, model.num_parameters);
 
-    size_t V = model.config.vocab_size;
-    size_t Vp = model.config.padded_vocab_size;
-    size_t maxT = model.config.max_seq_len;
-    size_t L = model.config.num_layers;
-    size_t C = model.config.channels;
+    // load tokenizer
+    Tokenizer tokenizer;
+    tokenizer_init(&tokenizer, "gpt2_tokenizer.bin");
 
-    // batch size
-    int B = 1;
-    // sequence length
-    int T = 64;
-    assert(0 <= T && T <= maxT);
-    // validate B,T are not larger than the values used at initialisation
-    // (smaller B,T are okay for inference only)
-
+     // load promptloader, T is read from the dataset file
     PromptLoader loader;
     promptloader_init(&loader, args.in, B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
-    gpt2_allocate_state(&model, B, T);
 
-    if (B > model.batch_size || T > model.seq_len) {
-        printf("Model: B=%d T=%d, Desired: B=%d T=%d\n", model.batch_size, model.seq_len, (int)B, (int)T);
-        exit(EXIT_FAILURE);
-    }
- 
+    //inference related memeroy allocation and settings
     double logprob_sum = 0;
     floatX* cpu_logits_raw = (floatX*) mallocCheck(model.config.vocab_size * sizeof(floatX));
     float* cpu_logits = (float*) mallocCheck(model.config.vocab_size * sizeof(float));
-    int eot_token = tokenizer.eot_token;
 
+    int eot_token = tokenizer.eot_token;
     unsigned long long sample_rng_state = (unsigned long long)args.seed;
 
-    printf("\n Number of prompts available: %d", loader.shard_num_samples);
-
+    #ifdef TESTING
     printf("\n---\n");
+    #endif
 
-    for (size_t i = 0; i < 2; i++)
+    for (size_t i = 0; i < loader.shard_num_samples; i++)
     {
         promptloader_next_batch(&loader);
         // copy inputs/targets to the model
         cudaCheck(cudaMemcpy(model.inputs, loader.inputs, B * T * sizeof(int), cudaMemcpyHostToDevice));
         // validate inputs, all indices must be in the range [0, V)
         // we can do this while the copies are already underway
-        tokenCheck(loader.inputs, B*T, V);
+        tokenCheck(loader.inputs, B*T, model.config.vocab_size);
 
+        #ifdef TESTING
         printf("Prompt:\n");
+        #endif
+
         int t = 0;
         while (t < T && loader.inputs[t] != eot_token)
         {
+            #ifdef TESTING
             safe_printf(tokenizer_decode(&tokenizer, loader.inputs[t]));
+            #endif
             t++;
         }
+
+        #ifdef TESTING
         printf("\nGenerated Text:\n");
+        #endif
+
         for (; t < T; t++) {
             gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
             // get the V-dimensional vector probs[0, t-1, :]
@@ -297,13 +296,21 @@ int main(int argc, char *argv[]) {
             float logprob = compute_logprob(cpu_logits, model.config.vocab_size, next_token);
             logprob_sum += logprob;
 
+            #ifdef TESTING
             const char* token_str = tokenizer_decode(&tokenizer, next_token);
             safe_printf(token_str);
             fflush(stdout);
+            #endif
         }
+
+        #ifdef TESTING
         printf("\n---\n");
+        #endif
     }
+
+    #ifdef TESTING
     fflush(stdout);
+    #endif
 
     float avg_logprob = logprob_sum / args.n_gen;
     float perplexity = expf(-avg_logprob);
