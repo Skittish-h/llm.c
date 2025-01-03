@@ -295,7 +295,7 @@ int main(int argc, char *argv[]) {
             safe_printf(token_str);
             fflush(stdout);
         }
-        printf("AABBCC")
+        printf("AABBCC");
         printf("\n");
     }
 
