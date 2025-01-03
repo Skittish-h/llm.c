@@ -286,7 +286,6 @@ int main(int argc, char *argv[]) {
             float coin = random_f32(&sample_rng_state);
             int next_token = sample_softmax_topk_topp(cpu_logits, model.config.vocab_size, coin, args.top_k, args.top_p, args.temp);
             // int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
-            printf("\n%d\n", model.inputs)
             cudaCheck(cudaMemcpy(model.inputs + t, &next_token, sizeof(int), cudaMemcpyHostToDevice));
 
             float logprob = compute_logprob(cpu_logits, model.config.vocab_size, next_token);
