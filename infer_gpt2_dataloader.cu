@@ -257,7 +257,7 @@ int main(int argc, char *argv[]) {
 
     unsigned long long sample_rng_state = (unsigned long long)args.seed;
 
-    printf("\n Number of prompts available: %d", loader->shard_num_samples)
+    printf("\n Number of prompts available: %d", loader->shard_num_samples);
 
     printf("\n---\n");
 
