@@ -236,7 +236,7 @@ int main(int argc, char *argv[]) {
     // batch size
     int B = 1;
     // sequence length
-    int T = 32;
+    int T = 64;
     assert(0 <= T && T <= maxT);
     // validate B,T are not larger than the values used at initialisation
     // (smaller B,T are okay for inference only)
@@ -270,6 +270,7 @@ int main(int argc, char *argv[]) {
         while (t < T && loader.inputs[t] != eot_token)
         {
             safe_printf(tokenizer_decode(&tokenizer, loader.inputs[t]));
+            fflush(stdout);
             t++;
         }
         for (; t < T; t++) {
@@ -295,8 +296,8 @@ int main(int argc, char *argv[]) {
             safe_printf(token_str);
             fflush(stdout);
         }
-        printf("AABBCC");
         printf("\n");
+        fflush(stdout);
     }
 
     float avg_logprob = logprob_sum / args.n_gen;
