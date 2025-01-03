@@ -211,11 +211,13 @@ int main(int argc, char *argv[]) {
     const char* load_filename = "gpt2_124M.bin";
     GPT2 model;
     gpt2_init_common(&model);
+    printf("1");
     gpt2_build_from_checkpoint(&model, load_filename);
+    printf("2");
     model.requires_grad = false;
 
     assert(0 <= T && T <= model.config.max_seq_len);
-    gpt2_allocate_state(&model, B, T);
+    printf("3");
 
     // init multi gpu config
     char nccl_init_method[256] = "mpi";  // "tcp" or "fs" or "mpi"
@@ -230,6 +232,8 @@ int main(int argc, char *argv[]) {
         nccl_init_method
     );
     set_zero_configs(&multi_gpu_config, 0, model.num_parameters);
+
+    gpt2_allocate_state(&model, B, T);
 
     // load tokenizer
     printf("Tokenizer is the problem");
