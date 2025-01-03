@@ -25,7 +25,7 @@ ParsedArgs parse_args(int argc, char *argv[]) {
     result.temp = 1.0;
     result.top_p = 1.0;  // Default value for top_p
     result.seed = 42;    // Default value for seed (-1 means not set)
-    result.in = "dev/data/testtest/test_32.bin";
+    result.in = "dev/data/promptset/prompt_32.bin";
     result.out = "out.txt";
 
     for (int i = 1; i < argc; ++i) {
@@ -257,7 +257,7 @@ int main(int argc, char *argv[]) {
 
     unsigned long long sample_rng_state = (unsigned long long)args.seed;
 
-    for (size_t i = 0; i < 1; i++)
+    for (size_t i = 0; i < 2; i++)
     {
         promptloader_next_batch(&loader);
         // copy inputs/targets to the model
@@ -273,7 +273,6 @@ int main(int argc, char *argv[]) {
             t++;
         }
         for (; t < T; t++) {
-            printf("a");
             gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
             // get the V-dimensional vector probs[0, t-1, :]
             floatX* logits = model.acts.output + (t - 1) * model.config.padded_vocab_size;
@@ -288,7 +287,7 @@ int main(int argc, char *argv[]) {
             int next_token = sample_softmax_topk_topp(cpu_logits, model.config.vocab_size, coin, args.top_k, args.top_p, args.temp);
             // int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
             printf("\n%d\n", model.inputs)
-            cudaCheck(cudaMemcpy(model.inputs + (t - 1), &next_token, sizeof(int), cudaMemcpyHostToDevice));
+            cudaCheck(cudaMemcpy(model.inputs + t, &next_token, sizeof(int), cudaMemcpyHostToDevice));
 
             float logprob = compute_logprob(cpu_logits, model.config.vocab_size, next_token);
             logprob_sum += logprob;
