@@ -287,9 +287,14 @@ int main(int argc, char *argv[]) {
             argmax_kernel<<<blocks_per_grid, threads_per_block, threads_per_block * (sizeof(float) + sizeof(int))>>>(logits, n, d_block_indices);
             reduce_argmax_kernel<<<1, blocks_per_grid, blocks_per_grid * (sizeof(float) + sizeof(int))>>>(logits, d_block_indices, nextToken, blocks_per_grid);
         }
+
+        cudaCheck(cudaMemcpy(loader.inputs, model.inputs, B * T * sizeof(int), cudaMemcpyDeviceToHost));
+
         printf("\n---\n");
-        const char* token_str = tokenizer_decode(&tokenizer, next_token);
-        safe_printf(token_str);
+        for (size_t i = 0; i < T; i++)
+        {
+            safe_printf(tokenizer_decode(&tokenizer, loader.inputs[i]));
+        }
         fflush(stdout);
 
     }
