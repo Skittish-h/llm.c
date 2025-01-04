@@ -7,6 +7,9 @@
 #define TESTING
 #include "llmc/promptloader.h"
 #include "train_gpt2.cu"
+#include "packages/json.h"
+
+using json = nlohmann::json;
 
 struct ParsedArgs {
     std::string in;  // input file path
@@ -223,6 +226,21 @@ int main(int argc, char *argv[]) {
     // this is a very important line
     common_start(false, true);
 
+    // Declare CUDA events
+    cudaEvent_t start, end;
+    cudaEventCreate(&start);
+    cudaEventCreate(&end);
+
+    // Containers for tracking durations
+    std::vector<float> model_init_durations;
+    std::vector<float> copy_to_device_durations;
+    std::vector<float> forward_pass_durations;
+    std::vector<float> copy_to_host_durations;
+    std::vector<float> sampling_durations;
+    std::vector<float> copy_next_token_durations;
+
+    float current_duration;
+
     // batch size
     int B = 1;
     // token length, need to be the same as the prompt datafile
@@ -275,36 +293,78 @@ int main(int argc, char *argv[]) {
 
     for (size_t i = 0; i < loader.shard_num_samples; i++)
     {
+        // Print progress
+        printf("Processing sample %zu of %zu (%.2f%% completed)\n", 
+           i + 1, loader.shard_num_samples, 
+           ((float)(i + 1) / loader.shard_num_samples) * 100);
+
         promptloader_next_batch(&loader);
         // copy inputs/targets to the model
+        cudaEventRecord(start);
         cudaCheck(cudaMemcpy(model.inputs, loader.inputs, B * T * sizeof(int), cudaMemcpyHostToDevice));
+        cudaEventRecord(end);
+        cudaEventSynchronize(end);
+        cudaEventElapsedTime(&current_duration, start, end);
+        copy_to_device_durations.push_back(current_duration);
 
         int t = 0;
         while (t < T && loader.inputs[t] != eot_token) t++;
 
         for (; t < T; t++) {
+            cudaEventRecord(start);
             gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
+            cudaEventRecord(end);
+            cudaEventSynchronize(end);
+            cudaEventElapsedTime(&current_duration, start, end);
+            forward_pass_durations.push_back(current_duration);
+
             floatX* logits = model.acts.output + (t - 1) * n;
             int* nextToken = model.inputs + t;
+
+            cudaEventRecord(start);
             argmax_kernel<<<blocks_per_grid, threads_per_block, threads_per_block * (sizeof(float) + sizeof(int))>>>(logits, n, d_block_indices);
             reduce_argmax_kernel<<<1, blocks_per_grid, blocks_per_grid * (sizeof(float) + sizeof(int))>>>(logits, d_block_indices, nextToken, blocks_per_grid);
+            cudaEventRecord(end);
+            cudaEventSynchronize(end);
+            cudaEventElapsedTime(&current_duration, start, end);
+            sampling_durations.push_back(current_duration);
         }
 
-
+        cudaEventRecord(start);
         cudaCheck(cudaMemcpy(output, model.inputs, B * T * sizeof(int), cudaMemcpyDeviceToHost));
-
-        printf("\n---\n");
-        for (size_t i = 0; i < T; i++)
-        {
-            safe_printf(tokenizer_decode(&tokenizer, output[i]));
-        }
-        fflush(stdout);
-
+        cudaEventRecord(end);
+        cudaEventSynchronize(end);
+        cudaEventElapsedTime(&current_duration, start, end);
+        copy_to_host_durations.push_back(current_duration);
     }
+
     free(output);
     gpt2_free(&model);
     promptloader_free(&loader);
     tokenizer_free(&tokenizer);
     cudaFree(d_block_indices);
+    cudaEventDestroy(start);
+    cudaEventDestroy(end);
+
+    json timings;
+
+    // Store raw durations for each category in the JSON object
+    timings["model_initialization"] = model_init_durations;
+    timings["copy_to_device"] = copy_to_device_durations;
+    timings["forward_pass"] = forward_pass_durations;
+    timings["copy_to_host"] = copy_to_host_durations;
+    timings["sampling"] = sampling_durations;
+    timings["copy_next_token"] = copy_next_token_durations;
+
+    // Write JSON object to file
+    std::ofstream out_file(args.out);
+    if (out_file.is_open()) {
+        out_file << timings.dump(4); // Pretty print with 4-space indentation
+        out_file.close();
+        printf("Raw durations written to %s\n", args.out);
+    } else {
+        printf("Error: Unable to open output file %s\n", args.out);
+    }
+
     return 0;
 }
