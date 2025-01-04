@@ -216,15 +216,6 @@ __global__ void reduce_argmax_kernel(floatX* logits, int* block_indices, int* ne
     }
 }
 
-void nextToken(GPT2 *model, int t, int* d_block_indices) {
-    int n = model->config.padded_vocab_size;
-    floatX* logits = model->acts.output + (t - 1) * n;
-    int* nextToken = model.inputs + t;
-
-    argmax_kernel<<<blocks_per_grid, threads_per_block, threads_per_block * (sizeof(float) + sizeof(int))>>>(logits, n, d_block_indices);
-    reduce_argmax_kernel<<<1, blocks_per_grid, blocks_per_grid * (sizeof(float) + sizeof(int))>>>(logits, d_block_indices, nextToken, blocks_per_grid);
-}
-
 
 int main(int argc, char *argv[]) {
     ParsedArgs args = parse_args(argc, argv);
@@ -290,7 +281,11 @@ int main(int argc, char *argv[]) {
 
         for (; t < T; t++) {
             gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
-            nextToken(&model, t, d_block_indices);
+            int n = model->config.padded_vocab_size;
+            floatX* logits = model->acts.output + (t - 1) * n;
+            int* nextToken = model->inputs + t;
+            argmax_kernel<<<blocks_per_grid, threads_per_block, threads_per_block * (sizeof(float) + sizeof(int))>>>(logits, n, d_block_indices);
+            reduce_argmax_kernel<<<1, blocks_per_grid, blocks_per_grid * (sizeof(float) + sizeof(int))>>>(logits, d_block_indices, nextToken, blocks_per_grid);
         }
         fprintf("\n---\n")
         const char* token_str = tokenizer_decode(&tokenizer, next_token);
