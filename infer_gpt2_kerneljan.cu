@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <float.h>
 
 #define TESTING
 #include "llmc/promptloader.h"
@@ -286,7 +287,7 @@ int main(int argc, char *argv[]) {
 
         int t = 0;
         while (t < T && loader.inputs[t] != eot_token) t++;
-        
+
         for (; t < T; t++) {
             gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
             nextToken(&model, t, d_block_indices);
