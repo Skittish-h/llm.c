@@ -3,6 +3,7 @@
 #include <vector>
 #include <cstdlib>
 #include <float.h>
+#include <fstream>
 
 #define TESTING
 #include "llmc/promptloader.h"
@@ -20,7 +21,7 @@ struct ParsedArgs {
 ParsedArgs parse_args(int argc, char *argv[]) {
     ParsedArgs result;
     result.in = "dev/data/promptset/prompt_64.bin";
-    result.out = "out.txt";
+    result.out = "timings.json";
     result.T = 64;
 
     for (int i = 1; i < argc; ++i) {
