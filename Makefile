@@ -287,7 +287,7 @@ infer_gpt2_dataloadercu: infer_gpt2_dataloader.cu $(NVCC_CUDNN)
 	$(NVCC) $(NVCC_FLAGS) $(PFLAGS) $^ $(NVCC_LDFLAGS) $(NVCC_INCLUDES) $(NVCC_LDLIBS) $(CUDA_OUTPUT_FILE)
 
 infer_gpt2_dataloader_timingcu: infer_gpt2_dataloader_timing.cu $(NVCC_CUDNN)
-  $(NVCC) $(NVCC_FLAGS) $(PFLAGS) $^ $(NVCC_LDFLAGS) $(NVCC_INCLUDES) $(NVCC_LDLIBS) $(CUDA_OUTPUT_FILE)
+	$(NVCC) $(NVCC_FLAGS) $(PFLAGS) $^ $(NVCC_LDFLAGS) $(NVCC_INCLUDES) $(NVCC_LDLIBS) $(CUDA_OUTPUT_FILE)
 
 infer_gpt2_zvono_accuracy: infer_gpt2_zvono_accuracy.cu $(NVCC_CUDNN)
 	$(NVCC) $(NVCC_FLAGS) $(PFLAGS) $^ $(NVCC_LDFLAGS) $(NVCC_INCLUDES) $(NVCC_LDLIBS) $(CUDA_OUTPUT_FILE)
