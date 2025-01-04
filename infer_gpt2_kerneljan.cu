@@ -192,6 +192,12 @@ int main(int argc, char *argv[]) {
     PromptLoader loader;
     promptloader_init(&loader, args.in, B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
 
+    //inference related memeroy allocation and settings
+    floatX* cpu_logits_raw = (floatX*) mallocCheck(model.config.vocab_size * sizeof(floatX));
+    float* cpu_logits = (float*) mallocCheck(model.config.vocab_size * sizeof(float));
+
+    int eot_token = tokenizer.eot_token;
+
     for (size_t i = 0; i < loader.shard_num_samples; i++)
     {
         promptloader_next_batch(&loader);
