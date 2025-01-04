@@ -362,9 +362,9 @@ int main(int argc, char *argv[]) {
     if (out_file.is_open()) {
         out_file << timings.dump(4); // Pretty print with 4-space indentation
         out_file.close();
-        printf("Raw durations written to %s\n", args.out);
+        printf("Raw durations written to %s\n", args.out.c_str());
     } else {
-        printf("Error: Unable to open output file %s\n", args.out);
+        printf("Error: Unable to open output file %s\n", args.out.c_str());
     }
 
     return 0;
