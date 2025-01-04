@@ -7,11 +7,6 @@
 #include "llmc/promptloader.h"
 #include "train_gpt2.cu"
 
-#include <iostream>
-#include <string>
-#include <vector>
-#include <cstdlib> // For std::atoi and std::atof
-
 struct ParsedArgs {
     std::vector<int> tokens;  // List of integer tokens
     int n_gen;                // Number of tokens to generate
