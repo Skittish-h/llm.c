@@ -7,18 +7,24 @@
 #include "llmc/promptloader.h"
 #include "train_gpt2.cu"
 
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cstdlib> // For std::atoi and std::atof
+
 struct ParsedArgs {
-    std::vector<int> tokens;
-    int n_gen;
-    int top_k;    // Top-K sampling
-    float temp;   // Temperature for sampling
-    float top_p;  // Top-P (nucleus) sampling
-    int seed;     // Random seed for reproducibility
-    char* in;     // input file path
-    char* out;    // output file path
+    std::vector<int> tokens;  // List of integer tokens
+    int n_gen;                // Number of tokens to generate
+    int top_k;                // Top-K sampling
+    float temp;               // Temperature for sampling
+    float top_p;              // Top-P (nucleus) sampling
+    int seed;                 // Random seed for reproducibility
+    std::string in;           // Input file path
+    std::string out;          // Output file path
+    int T;                    // Token length
 };
 
-ParsedArgs parse_args(int argc, char *argv[]) {
+ParsedArgs parse_args(int argc, char* argv[]) {
     ParsedArgs result;
     result.n_gen = 100;
     result.top_k = 50;  
@@ -27,6 +33,7 @@ ParsedArgs parse_args(int argc, char *argv[]) {
     result.seed = 42;    // Default value for seed (-1 means not set)
     result.in = "dev/data/promptset/prompt_64.bin";
     result.out = "out.txt";
+    result.T = 64;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -34,12 +41,12 @@ ParsedArgs parse_args(int argc, char *argv[]) {
             int j = i + 1;
             for (; j < argc; ++j) {
                 std::string nextArg = argv[j];
-                if (nextArg.rfind("--", 0) == 0) {
+                if (nextArg.rfind("--", 0) == 0) { // Check if the next argument starts with '--'
                     break;
                 }
                 result.tokens.push_back(std::atoi(nextArg.c_str()));
             }
-            i = j - 1;
+            i = j - 1; // Adjust index to skip parsed tokens
         } else if (arg == "--n_gen") {
             if (i + 1 < argc) {
                 result.n_gen = std::atoi(argv[i + 1]);
@@ -88,6 +95,13 @@ ParsedArgs parse_args(int argc, char *argv[]) {
                 i += 1;
             } else {
                 std::cerr << "Error: --out flag provided but no string found.\n";
+            }
+        } else if (arg == "--T") {
+            if (i + 1 < argc) {
+                result.out = argv[i + 1];
+                i += 1;
+            } else {
+                std::cerr << "Error: --T flag provided but no int found.\n";
             }
         }
     }
@@ -204,20 +218,16 @@ int main(int argc, char *argv[]) {
     int B = 1;
     // token length, need to be the same as the prompt datafile
     // TODO: set automatically from datafile header
-    int T = 64;
+    int T = args.T;
 
     // load model
-    printf("Model is the problem");
     const char* load_filename = "gpt2_124M.bin";
     GPT2 model;
     gpt2_init_common(&model);
-    printf("1");
     gpt2_build_from_checkpoint(&model, load_filename);
-    printf("2");
     model.requires_grad = false;
 
     assert(0 <= T && T <= model.config.max_seq_len);
-    printf("3");
 
     // init multi gpu config
     char nccl_init_method[256] = "mpi";  // "tcp" or "fs" or "mpi"
@@ -236,12 +246,10 @@ int main(int argc, char *argv[]) {
     gpt2_allocate_state(&model, B, T);
 
     // load tokenizer
-    printf("Tokenizer is the problem");
     Tokenizer tokenizer;
     tokenizer_init(&tokenizer, "gpt2_tokenizer.bin");
 
     // load promptloader, T is read from the dataset file
-    printf("Loader is the problem");
     PromptLoader loader;
     promptloader_init(&loader, args.in, B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
 
