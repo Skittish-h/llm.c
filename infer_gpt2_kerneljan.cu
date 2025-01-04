@@ -2,84 +2,30 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <float.h>
 
 #define TESTING
 #include "llmc/promptloader.h"
 #include "train_gpt2.cu"
 
 struct ParsedArgs {
-    std::vector<int> tokens;  // List of integer tokens
-    int n_gen;                // Number of tokens to generate
-    int top_k;                // Top-K sampling
-    float temp;               // Temperature for sampling
-    float top_p;              // Top-P (nucleus) sampling
-    int seed;                 // Random seed for reproducibility
-    std::string in;           // Input file path
-    std::string out;          // Output file path
-    int T;                    // Token length
+    std::string in;  // input file path
+    std::string out; // output file path
+    int T;
 };
 
-ParsedArgs parse_args(int argc, char* argv[]) {
+ParsedArgs parse_args(int argc, char *argv[]) {
     ParsedArgs result;
-    result.n_gen = 100;
-    result.top_k = 50;  
-    result.temp = 1.0;
-    result.top_p = 1.0;  // Default value for top_p
-    result.seed = 42;    // Default value for seed (-1 means not set)
     result.in = "dev/data/promptset/prompt_64.bin";
     result.out = "out.txt";
     result.T = 64;
 
     for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "--tokens") {
-            int j = i + 1;
-            for (; j < argc; ++j) {
-                std::string nextArg = argv[j];
-                if (nextArg.rfind("--", 0) == 0) { // Check if the next argument starts with '--'
-                    break;
-                }
-                result.tokens.push_back(std::atoi(nextArg.c_str()));
-            }
-            i = j - 1; // Adjust index to skip parsed tokens
-        } else if (arg == "--n_gen") {
+        std::string arg = argv[i]; // Convert argv[i] to std::string
+        
+        if (arg == "--in") {
             if (i + 1 < argc) {
-                result.n_gen = std::atoi(argv[i + 1]);
-                i += 1;
-            } else {
-                std::cerr << "Error: --n_gen flag provided but no integer value found.\n";
-            }
-        } else if (arg == "--top_k") {
-            if (i + 1 < argc) {
-                result.top_k = std::atoi(argv[i + 1]);
-                i += 1;
-            } else {
-                std::cerr << "Error: --top_k flag provided but no integer value found.\n";
-            }
-        } else if (arg == "--temp") {
-            if (i + 1 < argc) {
-                result.temp = std::atof(argv[i + 1]);
-                i += 1;
-            } else {
-                std::cerr << "Error: --temp flag provided but no float value found.\n";
-            }
-        } else if (arg == "--top_p") {
-            if (i + 1 < argc) {
-                result.top_p = std::atof(argv[i + 1]);
-                i += 1;
-            } else {
-                std::cerr << "Error: --top_p flag provided but no float value found.\n";
-            }
-        } else if (arg == "--seed") {
-            if (i + 1 < argc) {
-                result.seed = std::atoi(argv[i + 1]);
-                i += 1;
-            } else {
-                std::cerr << "Error: --seed flag provided but no integer value found.\n";
-            }
-        } else if (arg == "--in") {
-            if (i + 1 < argc) {
-                result.in = argv[i + 1];
+                result.in = argv[i + 1]; // Direct assignment works for std::string
                 i += 1;
             } else {
                 std::cerr << "Error: --in flag provided but no string found.\n";
@@ -91,9 +37,9 @@ ParsedArgs parse_args(int argc, char* argv[]) {
             } else {
                 std::cerr << "Error: --out flag provided but no string found.\n";
             }
-        } else if (arg == "--T") {
+        } else if (arg == "--t") {
             if (i + 1 < argc) {
-                result.out = argv[i + 1];
+                result.T = atoi(argv[i + 1]);
                 i += 1;
             } else {
                 std::cerr << "Error: --T flag provided but no int found.\n";
@@ -117,7 +63,6 @@ void gpt2_forward_copyfree(GPT2 *model, size_t B, size_t T) {
     }
 
     // convenience parameters
-    const size_t V = model->config.vocab_size;
     const size_t Vp = model->config.padded_vocab_size;
     const size_t L = model->config.num_layers;
     const size_t NH = model->config.num_heads;
@@ -203,6 +148,75 @@ void gpt2_forward_copyfree(GPT2 *model, size_t B, size_t T) {
     cudaCheck(cudaDeviceSynchronize());
 }
 
+__global__ void argmax_kernel(floatX* logits, int n, int* output) {
+    extern __shared__ float shared_data[]; // Dynamically allocated shared memory
+    float* shared_values = shared_data;
+    int* shared_indices = (int*)&shared_values[blockDim.x];
+
+    int tid = threadIdx.x;
+    int index = blockIdx.x * blockDim.x + tid;
+
+    // Load data into shared memory
+    if (index < n) {
+        shared_values[tid] = (float)logits[index];
+        shared_indices[tid] = index;
+    } else {
+        shared_values[tid] = -FLT_MAX; // Initialize to the smallest possible value
+        shared_indices[tid] = -1;
+    }
+    __syncthreads();
+
+    // Perform parallel reduction to find the max value and its index
+    for (int stride = blockDim.x / 2; stride > 0; stride /= 2) {
+        if (tid < stride) {
+            if (shared_values[tid] < shared_values[tid + stride]) {
+                shared_values[tid] = shared_values[tid + stride];
+                shared_indices[tid] = shared_indices[tid + stride];
+            }
+        }
+        __syncthreads();
+    }
+    // Write the result for this block to global memory
+    if (tid == 0) {
+        output[blockIdx.x] = shared_indices[0];
+    }
+}
+
+__global__ void reduce_argmax_kernel(floatX* logits, int* block_indices, int* nextToken, int n) {
+    extern __shared__ float shared_data[]; // Dynamically allocated shared memory
+    float* shared_values = shared_data;
+    int* shared_indices = (int*)&shared_values[blockDim.x];
+
+    int tid = threadIdx.x;
+    int index = threadIdx.x;
+
+    // Load data into shared memory
+    if (index < n) {
+        shared_values[tid] = logits[block_indices[index]];
+        shared_indices[tid] = block_indices[index];
+    } else {
+        shared_values[tid] = -FLT_MAX;
+        shared_indices[tid] = -1;
+    }
+    __syncthreads();
+
+    // Perform parallel reduction to find the max value and its index
+    for (int stride = blockDim.x / 2; stride > 0; stride /= 2) {
+        if (tid < stride) {
+            if (shared_values[tid] < shared_values[tid + stride]) {
+                shared_values[tid] = shared_values[tid + stride];
+                shared_indices[tid] = shared_indices[tid + stride];
+            }
+        }
+        __syncthreads();
+    }
+    // Write the final argmax index to the output
+    if (tid == 0) {
+        *nextToken = shared_indices[0];
+    }
+}
+
+
 int main(int argc, char *argv[]) {
     ParsedArgs args = parse_args(argc, argv);
 
@@ -249,14 +263,15 @@ int main(int argc, char *argv[]) {
     promptloader_init(&loader, args.in.c_str(), B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
 
     //inference related memeroy allocation and settings
-    double logprob_sum = 0;
-    floatX* cpu_logits_raw = (floatX*) mallocCheck(model.config.vocab_size * sizeof(floatX));
-    float* cpu_logits = (float*) mallocCheck(model.config.vocab_size * sizeof(float));
+    int n = model.config.padded_vocab_size;
+    int threads_per_block = 256;
+    int blocks_per_grid = ( + threads_per_block - 1) / threads_per_block;
+    int* d_block_indices;
+    cudaMalloc(&d_block_indices, blocks_per_grid * sizeof(int));
+
+    int* output = (int*)malloc(n * sizeof(int));
 
     int eot_token = tokenizer.eot_token;
-    unsigned long long sample_rng_state = (unsigned long long)args.seed;
-
-    printf("\n---\n");
 
     for (size_t i = 0; i < loader.shard_num_samples; i++)
     {
@@ -264,56 +279,32 @@ int main(int argc, char *argv[]) {
         // copy inputs/targets to the model
         cudaCheck(cudaMemcpy(model.inputs, loader.inputs, B * T * sizeof(int), cudaMemcpyHostToDevice));
 
-        printf("Prompt:\n");
-
         int t = 0;
-        while (t < T && loader.inputs[t] != eot_token)
-        {
-            safe_printf(tokenizer_decode(&tokenizer, loader.inputs[t]));
-            t++;
-        }
-
-        printf("\nGenerated Text:\n");
+        while (t < T && loader.inputs[t] != eot_token) t++;
 
         for (; t < T; t++) {
             gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
-            // get the V-dimensional vector probs[0, t-1, :]
-            floatX* logits = model.acts.output + (t - 1) * model.config.padded_vocab_size;
-            // move logits back to CPU and sample (note we only move the first vocab_size logits, ignoring the padding)
-            cudaCheck(cudaMemcpy(cpu_logits_raw, logits, model.config.vocab_size * sizeof(floatX), cudaMemcpyDeviceToHost));
-            // convert to FP32 into cpu_logits (this does nothing useful if floatX == float)
-            for (int i = 0; i < model.config.vocab_size; i++) {
-                cpu_logits[i] = (float)cpu_logits_raw[i];
-            }
-            // sample the next token
-            float coin = random_f32(&sample_rng_state);
-            // int next_token = sample_softmax_topk_topp(cpu_logits, model.config.vocab_size, coin, args.top_k, args.top_p, args.temp);
-            int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
-            cudaCheck(cudaMemcpy(model.inputs + t, &next_token, sizeof(int), cudaMemcpyHostToDevice));
-
-            float logprob = compute_logprob(cpu_logits, model.config.vocab_size, next_token);
-            logprob_sum += logprob;
-
-            const char* token_str = tokenizer_decode(&tokenizer, next_token);
-            safe_printf(token_str);
-            fflush(stdout);
+            floatX* logits = model.acts.output + (t - 1) * n;
+            int* nextToken = model.inputs + t;
+            argmax_kernel<<<blocks_per_grid, threads_per_block, threads_per_block * (sizeof(float) + sizeof(int))>>>(logits, n, d_block_indices);
+            reduce_argmax_kernel<<<1, blocks_per_grid, blocks_per_grid * (sizeof(float) + sizeof(int))>>>(logits, d_block_indices, nextToken, blocks_per_grid);
         }
 
+
+        cudaCheck(cudaMemcpy(output, model.inputs, B * T * sizeof(int), cudaMemcpyDeviceToHost));
+
         printf("\n---\n");
+        for (size_t i = 0; i < T; i++)
+        {
+            safe_printf(tokenizer_decode(&tokenizer, output[i]));
+        }
+        fflush(stdout);
 
     }
-
-    fflush(stdout);
-
-    float avg_logprob = logprob_sum / args.n_gen;
-    float perplexity = expf(-avg_logprob);
-
-    printf("\nAvg logp: %f\n", avg_logprob);
-    printf("Perplexity: %f\n", perplexity);
-
+    free(output);
     gpt2_free(&model);
     promptloader_free(&loader);
     tokenizer_free(&tokenizer);
-
+    cudaFree(d_block_indices);
     return 0;
 }
