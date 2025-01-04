@@ -169,7 +169,7 @@ __global__ void argmax_kernel(floatX* logits, int n, int* output) {
     // Perform parallel reduction to find the max value and its index
     for (int stride = blockDim.x / 2; stride > 0; stride /= 2) {
         if (tid < stride) {
-            if (shared_values[tid] < shared_values[tid + stride]) {
+            if (shared_values[tid] <= shared_values[tid + stride]) {
                 shared_values[tid] = shared_values[tid + stride];
                 shared_indices[tid] = shared_indices[tid + stride];
             }
@@ -203,7 +203,7 @@ __global__ void reduce_argmax_kernel(floatX* logits, int* block_indices, int* ne
     // Perform parallel reduction to find the max value and its index
     for (int stride = blockDim.x / 2; stride > 0; stride /= 2) {
         if (tid < stride) {
-            if (shared_values[tid] < shared_values[tid + stride]) {
+            if (shared_values[tid] <= shared_values[tid + stride]) {
                 shared_values[tid] = shared_values[tid + stride];
                 shared_indices[tid] = shared_indices[tid + stride];
             }
