@@ -190,7 +190,7 @@ int main(int argc, char *argv[]) {
 
     // load promptloader, T is read from the dataset file
     PromptLoader loader;
-    promptloader_init(&loader, args.in, B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
+    promptloader_init(&loader, args.in.c_str(), B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
 
     //inference related memeroy allocation and settings
     floatX* cpu_logits_raw = (floatX*) mallocCheck(model.config.vocab_size * sizeof(floatX));
