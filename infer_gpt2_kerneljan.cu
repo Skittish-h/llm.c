@@ -265,7 +265,7 @@ int main(int argc, char *argv[]) {
     //inference related memeroy allocation and settings
     int n = model.config.padded_vocab_size;
     int threads_per_block = 256;
-    int blocks_per_grid = ( + threads_per_block - 1) / threads_per_block;
+    int blocks_per_grid = (n + threads_per_block - 1) / threads_per_block;
     int* d_block_indices;
     cudaMalloc(&d_block_indices, blocks_per_grid * sizeof(int));
 
