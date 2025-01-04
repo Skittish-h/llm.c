@@ -167,6 +167,11 @@ inline void device_to_file(FILE* dest, void* src, size_t num_bytes, size_t buffe
 
 // copy num_bytes from file src into device pointer dest, using double buffering running on the given stream.
 inline void file_to_device(void* dest, FILE* src, size_t num_bytes, size_t buffer_size, cudaStream_t stream) {
+    #if defined(ENABLE_BF16)
+        typedef __nv_bfloat16 floatF;
+    #else
+        typedef float floatF;
+    #endif
      // allocate pinned buffer for faster, async transfer
      // from the docs (https://developer.download.nvidia.com/compute/DevZone/docs/html/C/doc/html/group__CUDART__HIGHLEVEL_ge439496de696b166ba457dab5dd4f356.html)
      // WC memory is a good option for buffers that will be written by the CPU and read by the device via mapped pinned memory or host->device transfers.
@@ -178,14 +183,13 @@ inline void file_to_device(void* dest, FILE* src, size_t num_bytes, size_t buffe
     // split allocation in two
     void* read_buffer = buffer_space;
     void* write_buffer = buffer_space + (buffer_size * sizeof(floatX));
-    float* convFromBuffer = (float*) mallocCheck(buffer_size * sizeof(float));
-    // todo: convToBuffer is not really needed. we could directly copy data to the read buffer
+    floatF* convFromBuffer = (floatF*) mallocCheck(buffer_size * sizeof(floatF));
     floatX* convToBuffer = (floatX*) mallocCheck(buffer_size * sizeof(floatX));
 
     // prime the read buffer;
     char* gpu_write_ptr = (char*)dest;
     size_t copy_amount = std::min(buffer_size, num_elements);
-    freadCheck(convFromBuffer, sizeof(float), copy_amount, src);
+    freadCheck(convFromBuffer, sizeof(floatF), copy_amount, src);
     for (int i = 0; i < copy_amount; i++) {
         convToBuffer[i] = static_cast<floatX>(convFromBuffer[i]);
     }
@@ -202,7 +206,7 @@ inline void file_to_device(void* dest, FILE* src, size_t num_bytes, size_t buffe
         cudaCheck(cudaMemcpyAsync(gpu_write_ptr, write_buffer, write_buffer_size, cudaMemcpyHostToDevice, stream));
         gpu_write_ptr += write_buffer_size;
         // while this is going on, read from disk
-        freadCheck(convFromBuffer, sizeof(float), copy_amount, src);
+        freadCheck(convFromBuffer, sizeof(floatF), copy_amount, src);
         for (int i = 0; i < copy_amount; i++) {
             convToBuffer[i] = static_cast<floatX>(convFromBuffer[i]);
         }

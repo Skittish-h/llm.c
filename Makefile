@@ -230,7 +230,7 @@ else
 endif
 
 # Precision settings, default to bf16 but ability to override
-PRECISION ?= FP16
+PRECISION ?= FP32
 VALID_PRECISIONS := FP32 FP16 BF16
 ifeq ($(filter $(PRECISION),$(VALID_PRECISIONS)),)
   $(error Invalid precision $(PRECISION), valid precisions are $(VALID_PRECISIONS))
@@ -254,7 +254,7 @@ ifeq ($(NVCC),)
     $(info ✗ nvcc not found, skipping GPU/CUDA builds)
 else
     $(info ✓ nvcc found, including GPU/CUDA support)
-    TARGETS += train_gpt2cu test_gpt2cu infer_gpt2cu infer_gpt2_dataloadercu train_gpt2fp32cu test_gpt2fp32cu $(NVCC_CUDNN)
+    TARGETS += train_gpt2cu test_gpt2cu infer_gpt2cu infer_gpt2_dataloadercu infer_gpt2_dataloader_timingcu train_gpt2fp32cu test_gpt2fp32cu $(NVCC_CUDNN)
 endif
 
 $(info ---------------------------------------------)
@@ -284,6 +284,9 @@ infer_gpt2cu: infer_gpt2.cu $(NVCC_CUDNN)
 	$(NVCC) $(NVCC_FLAGS) $(PFLAGS) $^ $(NVCC_LDFLAGS) $(NVCC_INCLUDES) $(NVCC_LDLIBS) $(CUDA_OUTPUT_FILE)
 
 infer_gpt2_dataloadercu: infer_gpt2_dataloader.cu $(NVCC_CUDNN)
+	$(NVCC) $(NVCC_FLAGS) $(PFLAGS) $^ $(NVCC_LDFLAGS) $(NVCC_INCLUDES) $(NVCC_LDLIBS) $(CUDA_OUTPUT_FILE)
+
+infer_gpt2_dataloader_timingcu: infer_gpt2_dataloader_timing.cu $(NVCC_CUDNN)
 	$(NVCC) $(NVCC_FLAGS) $(PFLAGS) $^ $(NVCC_LDFLAGS) $(NVCC_INCLUDES) $(NVCC_LDLIBS) $(CUDA_OUTPUT_FILE)
 
 test_gpt2fp32cu: test_gpt2_fp32.cu
