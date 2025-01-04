@@ -269,6 +269,8 @@ int main(int argc, char *argv[]) {
     int* d_block_indices;
     cudaMalloc(&d_block_indices, blocks_per_grid * sizeof(int));
 
+    int* output = (int*)malloc(n * sizeof(int));
+
     int eot_token = tokenizer.eot_token;
 
     for (size_t i = 0; i < loader.shard_num_samples; i++)
@@ -288,16 +290,18 @@ int main(int argc, char *argv[]) {
             reduce_argmax_kernel<<<1, blocks_per_grid, blocks_per_grid * (sizeof(float) + sizeof(int))>>>(logits, d_block_indices, nextToken, blocks_per_grid);
         }
 
-        cudaCheck(cudaMemcpy(loader.inputs, model.inputs, B * T * sizeof(int), cudaMemcpyDeviceToHost));
+
+        cudaCheck(cudaMemcpy(output, model.inputs, B * T * sizeof(int), cudaMemcpyDeviceToHost));
 
         printf("\n---\n");
         for (size_t i = 0; i < T; i++)
         {
-            safe_printf(tokenizer_decode(&tokenizer, loader.inputs[i]));
+            safe_printf(tokenizer_decode(&tokenizer, output[i]));
         }
         fflush(stdout);
 
     }
+    free(output);
     gpt2_free(&model);
     promptloader_free(&loader);
     tokenizer_free(&tokenizer);
