@@ -280,7 +280,6 @@ int main(int argc, char *argv[]) {
 
             // sample the next token
             cudaEventRecord(start);
-            float coin = random_f32(&sample_rng_state);
             int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
             cudaEventRecord(end);
             cudaEventSynchronize(end);
