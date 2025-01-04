@@ -12,30 +12,23 @@
 using json = nlohmann::json;
 
 struct ParsedArgs {
-    int seed;     // Random seed for reproducibility
-    char* in;     // input file path
-    char* out;    // output file path
+    std::string in;  // input file path
+    std::string out; // output file path
+    int T;
 };
 
 ParsedArgs parse_args(int argc, char *argv[]) {
     ParsedArgs result;
-    result.seed = 42;    // Default value for seed (-1 means not set)
     result.in = "dev/data/promptset/prompt_64.bin";
     result.out = "timings.json";
+    result.T = 64;
 
     for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
+        std::string arg = argv[i]; // Convert argv[i] to std::string
         
-        if (arg == "--seed") {
+        if (arg == "--in") {
             if (i + 1 < argc) {
-                result.seed = std::atoi(argv[i + 1]);
-                i += 1;
-            } else {
-                std::cerr << "Error: --seed flag provided but no integer value found.\n";
-            }
-        } else if (arg == "--in") {
-            if (i + 1 < argc) {
-                result.in = argv[i + 1];
+                result.in = argv[i + 1]; // Direct assignment works for std::string
                 i += 1;
             } else {
                 std::cerr << "Error: --in flag provided but no string found.\n";
@@ -46,6 +39,13 @@ ParsedArgs parse_args(int argc, char *argv[]) {
                 i += 1;
             } else {
                 std::cerr << "Error: --out flag provided but no string found.\n";
+            }
+        } else if (arg == "--t") {
+            if (i + 1 < argc) {
+                result.T = atoi(argv[i + 1]);
+                i += 1;
+            } else {
+                std::cerr << "Error: --T flag provided but no int found.\n";
             }
         }
     }
@@ -177,9 +177,9 @@ int main(int argc, char *argv[]) {
     int B = 1;
     // token length, need to be the same as the prompt datafile
     // TODO: set automatically from datafile header
-    int T = 64;
+    int T = args.T;
 
-    const char* load_filename = "gpt2_124M_bf16.bin";
+    const char* load_filename = "gpt2_124M.bin";
     GPT2 model;
     // init multi gpu config
     char nccl_init_method[256] = "mpi";  // "tcp" or "fs" or "mpi"
@@ -222,14 +222,13 @@ int main(int argc, char *argv[]) {
 
     // load promptloader, T is read from the dataset file
     PromptLoader loader;
-    promptloader_init(&loader, args.in, B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
+    promptloader_init(&loader, args.in.c_str(), B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
 
     //inference related memeroy allocation and settings
     floatX* cpu_logits_raw = (floatX*) mallocCheck(model.config.vocab_size * sizeof(floatX));
     float* cpu_logits = (float*) mallocCheck(model.config.vocab_size * sizeof(float));
 
     int eot_token = tokenizer.eot_token;
-    unsigned long long sample_rng_state = (unsigned long long)args.seed;
 
     printf("\n---\n");
 
@@ -319,9 +318,9 @@ int main(int argc, char *argv[]) {
     if (out_file.is_open()) {
         out_file << timings.dump(4); // Pretty print with 4-space indentation
         out_file.close();
-        printf("Raw durations written to %s\n", args.out);
+        printf("Raw durations written to %s\n", args.out.c_str());
     } else {
-        printf("Error: Unable to open output file %s\n", args.out);
+        printf("Error: Unable to open output file %s\n", args.out.c_str());
     }
 
     return 0;
