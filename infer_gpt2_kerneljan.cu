@@ -147,6 +147,84 @@ void gpt2_forward_copyfree(GPT2 *model, size_t B, size_t T) {
     cudaCheck(cudaDeviceSynchronize());
 }
 
+__global__ void argmax_kernel(floatX* logits, int n, int* output) {
+    extern __shared__ float shared_data[]; // Dynamically allocated shared memory
+    float* shared_values = shared_data;
+    int* shared_indices = (int*)&shared_values[blockDim.x];
+
+    int tid = threadIdx.x;
+    int index = blockIdx.x * blockDim.x + tid;
+
+    // Load data into shared memory
+    if (index < n) {
+        shared_values[tid] = (float)logits[index];
+        shared_indices[tid] = index;
+    } else {
+        shared_values[tid] = -FLT_MAX; // Initialize to the smallest possible value
+        shared_indices[tid] = -1;
+    }
+    __syncthreads();
+
+    // Perform parallel reduction to find the max value and its index
+    for (int stride = blockDim.x / 2; stride > 0; stride /= 2) {
+        if (tid < stride) {
+            if (shared_values[tid] < shared_values[tid + stride]) {
+                shared_values[tid] = shared_values[tid + stride];
+                shared_indices[tid] = shared_indices[tid + stride];
+            }
+        }
+        __syncthreads();
+    }
+    // Write the result for this block to global memory
+    if (tid == 0) {
+        output[blockIdx.x] = shared_indices[0];
+    }
+}
+
+__global__ void reduce_argmax_kernel(floatX* logits, int* block_indices, int* nextToken, int n) {
+    extern __shared__ float shared_data[]; // Dynamically allocated shared memory
+    float* shared_values = shared_data;
+    int* shared_indices = (int*)&shared_values[blockDim.x];
+
+    int tid = threadIdx.x;
+    int index = threadIdx.x;
+
+    // Load data into shared memory
+    if (index < n) {
+        shared_values[tid] = logits[block_indices[index]];
+        shared_indices[tid] = block_indices[index];
+    } else {
+        shared_values[tid] = -FLT_MAX;
+        shared_indices[tid] = -1;
+    }
+    __syncthreads();
+
+    // Perform parallel reduction to find the max value and its index
+    for (int stride = blockDim.x / 2; stride > 0; stride /= 2) {
+        if (tid < stride) {
+            if (shared_values[tid] < shared_values[tid + stride]) {
+                shared_values[tid] = shared_values[tid + stride];
+                shared_indices[tid] = shared_indices[tid + stride];
+            }
+        }
+        __syncthreads();
+    }
+    // Write the final argmax index to the output
+    if (tid == 0) {
+        *nextToken = shared_indices[0];
+    }
+}
+
+void nextToken(GPT2 *model, int t, int* d_block_indices) {
+    int n = model->config.padded_vocab_size;
+    floatX* logits = model->acts.output + (t - 1) * n;
+    int* nextToken = model.inputs + t;
+
+    argmax_kernel<<<blocks_per_grid, threads_per_block, threads_per_block * (sizeof(float) + sizeof(int))>>>(logits, n, d_block_indices);
+    reduce_argmax_kernel<<<1, blocks_per_grid, blocks_per_grid * (sizeof(float) + sizeof(int))>>>(logits, d_block_indices, nextToken, blocks_per_grid);
+}
+
+
 int main(int argc, char *argv[]) {
     ParsedArgs args = parse_args(argc, argv);
 
@@ -193,8 +271,10 @@ int main(int argc, char *argv[]) {
     promptloader_init(&loader, args.in.c_str(), B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
 
     //inference related memeroy allocation and settings
-    floatX* cpu_logits_raw = (floatX*) mallocCheck(model.config.vocab_size * sizeof(floatX));
-    float* cpu_logits = (float*) mallocCheck(model.config.vocab_size * sizeof(float));
+    int threads_per_block = 256;
+    int blocks_per_grid = (n + threads_per_block - 1) / threads_per_block;
+    int* d_block_indices;
+    cudaMalloc(&d_block_indices, blocks_per_grid * sizeof(int));
 
     int eot_token = tokenizer.eot_token;
 
@@ -205,35 +285,21 @@ int main(int argc, char *argv[]) {
         cudaCheck(cudaMemcpy(model.inputs, loader.inputs, B * T * sizeof(int), cudaMemcpyHostToDevice));
 
         int t = 0;
-        while (t < T && loader.inputs[t] != eot_token)
-        {
-            t++;
-        }
+        while (t < T && loader.inputs[t] != eot_token) t++;
+        
         for (; t < T; t++) {
             gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
-            // get the V-dimensional vector probs[0, t-1, :]
-            floatX* logits = model.acts.output + (t - 1) * model.config.padded_vocab_size;
-            // move logits back to CPU and sample (note we only move the first vocab_size logits, ignoring the padding)
-            cudaCheck(cudaMemcpy(cpu_logits_raw, logits, model.config.vocab_size * sizeof(floatX), cudaMemcpyDeviceToHost));
-            // convert to FP32 into cpu_logits (this does nothing useful if floatX == float)
-            for (int i = 0; i < model.config.vocab_size; i++) {
-                cpu_logits[i] = (float)cpu_logits_raw[i];
-            }
-
-            int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
-            cudaCheck(cudaMemcpy(model.inputs + t, &next_token, sizeof(int), cudaMemcpyHostToDevice));
-
-            const char* token_str = tokenizer_decode(&tokenizer, next_token);
-            safe_printf(token_str);
-            fflush(stdout);
+            nextToken(&model, t, d_block_indices);
         }
-        printf("\n---\n");
+        fprintf("\n---\n")
+        const char* token_str = tokenizer_decode(&tokenizer, next_token);
+        safe_printf(token_str);
+        fflush(stdout);
+
     }
-
-    fflush(stdout);
-
     gpt2_free(&model);
     promptloader_free(&loader);
     tokenizer_free(&tokenizer);
+    cudaFree(d_block_indices);
     return 0;
 }
