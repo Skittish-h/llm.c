@@ -287,7 +287,7 @@ int main(int argc, char *argv[]) {
             argmax_kernel<<<blocks_per_grid, threads_per_block, threads_per_block * (sizeof(float) + sizeof(int))>>>(logits, n, d_block_indices);
             reduce_argmax_kernel<<<1, blocks_per_grid, blocks_per_grid * (sizeof(float) + sizeof(int))>>>(logits, d_block_indices, nextToken, blocks_per_grid);
         }
-        fprintf("\n---\n")
+        fprintf("\n---\n");
         const char* token_str = tokenizer_decode(&tokenizer, next_token);
         safe_printf(token_str);
         fflush(stdout);
