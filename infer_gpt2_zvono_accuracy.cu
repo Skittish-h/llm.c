@@ -333,7 +333,7 @@ int main(int argc, char *argv[]) {
         {
             json token_data;
             token_data["step"]     = t;           // or t+1, depending how you want to index
-            token_data["token"]    = next_token;
+//            token_data["token"]    = next_token;
             token_data["text"]     = token_str;
             token_data["logprob"]  = logprob;
 
