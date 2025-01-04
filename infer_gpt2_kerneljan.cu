@@ -192,33 +192,17 @@ int main(int argc, char *argv[]) {
     PromptLoader loader;
     promptloader_init(&loader, args.in, B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
 
-    //inference related memeroy allocation and settings
-    double logprob_sum = 0;
-    floatX* cpu_logits_raw = (floatX*) mallocCheck(model.config.vocab_size * sizeof(floatX));
-    float* cpu_logits = (float*) mallocCheck(model.config.vocab_size * sizeof(float));
-
-    int eot_token = tokenizer.eot_token;
-    unsigned long long sample_rng_state = (unsigned long long)args.seed;
-
-    printf("\n---\n");
-
     for (size_t i = 0; i < loader.shard_num_samples; i++)
     {
         promptloader_next_batch(&loader);
         // copy inputs/targets to the model
         cudaCheck(cudaMemcpy(model.inputs, loader.inputs, B * T * sizeof(int), cudaMemcpyHostToDevice));
 
-        printf("Prompt:\n");
-
         int t = 0;
         while (t < T && loader.inputs[t] != eot_token)
         {
-            safe_printf(tokenizer_decode(&tokenizer, loader.inputs[t]));
             t++;
         }
-
-        printf("\nGenerated Text:\n");
-
         for (; t < T; t++) {
             gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
             // get the V-dimensional vector probs[0, t-1, :]
@@ -229,35 +213,21 @@ int main(int argc, char *argv[]) {
             for (int i = 0; i < model.config.vocab_size; i++) {
                 cpu_logits[i] = (float)cpu_logits_raw[i];
             }
-            // sample the next token
-            float coin = random_f32(&sample_rng_state);
-            // int next_token = sample_softmax_topk_topp(cpu_logits, model.config.vocab_size, coin, args.top_k, args.top_p, args.temp);
+
             int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
             cudaCheck(cudaMemcpy(model.inputs + t, &next_token, sizeof(int), cudaMemcpyHostToDevice));
-
-            float logprob = compute_logprob(cpu_logits, model.config.vocab_size, next_token);
-            logprob_sum += logprob;
 
             const char* token_str = tokenizer_decode(&tokenizer, next_token);
             safe_printf(token_str);
             fflush(stdout);
         }
-
         printf("\n---\n");
-
     }
 
     fflush(stdout);
 
-    float avg_logprob = logprob_sum / args.n_gen;
-    float perplexity = expf(-avg_logprob);
-
-    printf("\nAvg logp: %f\n", avg_logprob);
-    printf("Perplexity: %f\n", perplexity);
-
     gpt2_free(&model);
     promptloader_free(&loader);
     tokenizer_free(&tokenizer);
-
     return 0;
 }
