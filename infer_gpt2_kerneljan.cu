@@ -263,8 +263,9 @@ int main(int argc, char *argv[]) {
     promptloader_init(&loader, args.in.c_str(), B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
 
     //inference related memeroy allocation and settings
+    int n = model.config.padded_vocab_size;
     int threads_per_block = 256;
-    int blocks_per_grid = (n + threads_per_block - 1) / threads_per_block;
+    int blocks_per_grid = ( + threads_per_block - 1) / threads_per_block;
     int* d_block_indices;
     cudaMalloc(&d_block_indices, blocks_per_grid * sizeof(int));
 
@@ -281,9 +282,8 @@ int main(int argc, char *argv[]) {
 
         for (; t < T; t++) {
             gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
-            int n = model->config.padded_vocab_size;
-            floatX* logits = model->acts.output + (t - 1) * n;
-            int* nextToken = model->inputs + t;
+            floatX* logits = model.acts.output + (t - 1) * n;
+            int* nextToken = model.inputs + t;
             argmax_kernel<<<blocks_per_grid, threads_per_block, threads_per_block * (sizeof(float) + sizeof(int))>>>(logits, n, d_block_indices);
             reduce_argmax_kernel<<<1, blocks_per_grid, blocks_per_grid * (sizeof(float) + sizeof(int))>>>(logits, d_block_indices, nextToken, blocks_per_grid);
         }
