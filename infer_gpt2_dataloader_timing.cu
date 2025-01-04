@@ -293,7 +293,7 @@ int main(int argc, char *argv[]) {
             cudaEventElapsedTime(&current_duration, start, end);
             copy_next_token_durations.push_back(current_duration);
         }
-
+        print("Huso: %d", t);
     }
 
     fflush(stdout);
