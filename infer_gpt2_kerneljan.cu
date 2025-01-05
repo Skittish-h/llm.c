@@ -220,9 +220,16 @@ __global__ void reduce_argmax_kernel(floatX* logits, int* block_indices, int* ne
     }
 }
 
+void print_args(const ParsedArgs& args) {
+    std::cout << "Input File Path: " << args.in << std::endl;
+    std::cout << "Output File Path: " << args.out << std::endl;
+    std::cout << "T (Sequence Length): " << args.T << std::endl;
+}
 
 int main(int argc, char *argv[]) {
     ParsedArgs args = parse_args(argc, argv);
+
+    print_args(args);
 
     // this is a very important line
     common_start(false, true);
@@ -249,7 +256,7 @@ int main(int argc, char *argv[]) {
     int T = args.T;
 
     // load model
-    const char* load_filename = "gpt2_124M.bin";
+    const char* load_filename = "gpt2_124M_bf16.bin";
     GPT2 model;
     gpt2_init_common(&model);
     gpt2_build_from_checkpoint(&model, load_filename);
