@@ -12,7 +12,7 @@ using json = nlohmann::json;
 
 struct ParsedArgs {
     std::vector<int> tokens;  // List of integer tokens
-    int n_gen;                // Number of tokens to generate (we'll override to 1)
+    int n_gen;                // Number of tokens to generate (we'll override to 5)
     int top_k;                // Top-K sampling
     float temp;               // Temperature for sampling
     float top_p;              // Top-P (nucleus) sampling
@@ -222,8 +222,8 @@ void gpt2_forward_copyfree(GPT2 *model, size_t B, size_t T) {
 int main(int argc, char *argv[]) {
     ParsedArgs args = parse_args(argc, argv);
 
-    // Force only 1 token to be generated to satisfy (A)
-    args.n_gen = 1;
+    // Force only 5 tokens to be generated
+    args.n_gen = 5;
 
     // Start environment
     common_start(false, true);
@@ -285,78 +285,96 @@ int main(int argc, char *argv[]) {
         }
         printf("\n");
 
-        // to store JSON
+        // JSON array to collect data for the N generated tokens
         json log_data = json::array();
 
-        // We'll only generate 1 next token per requirement (A)
-        // Step 1: do the forward pass up to t tokens
-        //         (But watch out: if t == 0, the model.acts.output must not index t-1)
-        //         We can clamp to at least 1 for forward pass if needed.
-        int forward_len = (t == 0) ? 1 : t;
-        gpt2_forward_copyfree(&model, B, CEIL_DIV(forward_len, std::min(T, 256)) * std::min(T, 256));
+        // We'll generate 5 tokens total:
+        for (int gen_i = 0; gen_i < 5; gen_i++) {
+            // Step 1: do the forward pass up to t tokens
+            // But clamp forward_len to at least 1
+            int forward_len = (t == 0) ? 1 : t;
+            // Some GPU kernels often require T to be a multiple of 256 for streaming,
+            // so we do something like: CEIL_DIV(forward_len, chunk_size) * chunk_size
+            // but for small T, it's less relevant. We'll keep it for consistency:
+            gpt2_forward_copyfree(&model, B,
+                                  CEIL_DIV(forward_len, std::min(T, 256)) * std::min(T, 256));
 
-        // Step 2: compute the next token from position t
-        // If t == 0, the logits will be for position 0 after forward_len=1,
-        // otherwise for position (t-1).
-        int logits_index = (t == 0) ? 0 : (t - 1);
-        floatX* logits = model.acts.output + logits_index * model.config.padded_vocab_size;
+            // Step 2: compute the next token from position t
+            // If t == 0, then after forward pass, the logits for position 0 are in offset 0
+            // else the logits for position t-1 are in offset (t - 1)
+            int logits_index = (t == 0) ? 0 : (t - 1);
+            floatX* logits = model.acts.output + logits_index * model.config.padded_vocab_size;
 
-        cudaCheck(cudaMemcpy(cpu_logits_raw, logits,
-                             model.config.vocab_size * sizeof(floatX),
-                             cudaMemcpyDeviceToHost));
-        for (int vi = 0; vi < model.config.vocab_size; vi++) {
-            cpu_logits[vi] = (float) cpu_logits_raw[vi];
-        }
-
-        // sample the token
-        float coin = random_f32(&sample_rng_state);
-        // Or top-k, top-p, etc. Here is argmax for demonstration
-        // int next_token = sample_softmax_topk_topp(cpu_logits, model.config.vocab_size, coin, args.top_k, args.top_p, args.temp);
-        int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
-
-        // store the next token back onto the GPU
-        if (t < T) {
-            cudaCheck(cudaMemcpy(model.inputs + t, &next_token, sizeof(int), cudaMemcpyHostToDevice));
-        }
-
-        // compute logprob
-        float logprob = compute_logprob(cpu_logits, model.config.vocab_size, next_token);
-        logprob_sum += logprob;
-
-        // decode token text
-        const char* token_str = tokenizer_decode(&tokenizer, next_token);
-
-        printf("Generated Token:\n");
-        safe_printf(token_str);
-        printf("\n---\n");
-
-        {
-            json token_data;
-            token_data["step"]     = t;           // or t+1, depending how you want to index
-//            token_data["token"]    = next_token;
-//            token_data["text"]     = token_str;
-            token_data["logprob"]  = logprob;
-
-            // store input tokens up to t
-            json input_tokens_json = json::array();
-            for (int idx = 0; idx < t; idx++) {
-                input_tokens_json.push_back(loader.inputs[idx]);
-            }
-            token_data["input_tokens"] = input_tokens_json;
-
-            // store all logits
-            json logits_json = json::array();
+            cudaCheck(cudaMemcpy(cpu_logits_raw, logits,
+                                 model.config.vocab_size * sizeof(floatX),
+                                 cudaMemcpyDeviceToHost));
             for (int vi = 0; vi < model.config.vocab_size; vi++) {
-                logits_json.push_back(cpu_logits[vi]);
+                cpu_logits[vi] = (float) cpu_logits_raw[vi];
             }
-            token_data["logits"] = logits_json;
 
-            log_data.push_back(token_data);
-        }
+            // sample the token
+            float coin = random_f32(&sample_rng_state);
+            // top-k, top-p, etc. For simplicity, we do argmax here:
+            int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
 
+            // store the next token back onto the GPU if there's still space
+            if (t < T) {
+                cudaCheck(cudaMemcpy(model.inputs + t, &next_token, sizeof(int), cudaMemcpyHostToDevice));
+            }
 
+            // compute logprob
+            float logprob = compute_logprob(cpu_logits, model.config.vocab_size, next_token);
+            logprob_sum += logprob;
 
-        // Ensure we created the "saved_logits" folder beforehand
+            // decode token text
+            const char* token_str = tokenizer_decode(&tokenizer, next_token);
+
+            printf("Generated token %d:\n", gen_i + 1);
+            safe_printf(token_str);
+            printf("\n---\n");
+
+            // JSON object for this step
+            {
+                json token_data;
+                token_data["step"]        = t;  // or t+1, depending how you want to index
+                token_data["token"]       = next_token;
+//                token_data["text"]        = token_str;
+                token_data["logprob"]     = logprob;
+
+                // store input tokens up to t
+                json input_tokens_json = json::array();
+                for (int idx = 0; idx < t; idx++) {
+                    input_tokens_json.push_back(loader.inputs[idx]);
+                }
+//                token_data["input_tokens"] = input_tokens_json;
+
+                // store all logits
+                json logits_json = json::array();
+                for (int vi = 0; vi < model.config.vocab_size; vi++) {
+                    logits_json.push_back(cpu_logits[vi]);
+                }
+                token_data["logits"] = logits_json;
+
+                log_data.push_back(token_data);
+            }
+
+            // increment t to point to the newly generated token
+            t++;
+
+            // If we hit EOT, break early
+            if (next_token == eot_token) {
+                printf("EOT token encountered, stopping generation.\n");
+                break;
+            }
+
+            // If we've used up all T positions, break
+            if (t >= T) {
+                printf("Reached maximum token length.\n");
+                break;
+            }
+        } // end for (gen_i)
+
+        // Once we have generated 5 tokens (or less, if we break early), write them out
         {
             char filename[512];
             sprintf(filename, "saved_logits/generation_%s_%zu.json", args.name.c_str(), i);
