@@ -84,7 +84,7 @@ typedef Packed128<floatX> x128;
 
 // enumerator to indentify the datatype of a tensor.
 enum class DType : uint8_t {
-    FP32, FP16, BF16
+    FP32, FP16, FP8, BF16
 };
 
 // Given a datatype enum, returns the underlying number of bytes
@@ -95,6 +95,8 @@ size_t sizeof_dtype(DType type) {
             return sizeof(float);
         case DType::FP16:
             return sizeof(half);
+        case DType::FP16:
+            return sizeof(nv_fp8_e4m3);
         case DType::BF16:
             return sizeof(nv_bfloat16);
         default: // handle or get compiler warning
@@ -106,6 +108,7 @@ size_t sizeof_dtype(DType type) {
 DType dtype_of(float* f) { return DType::FP32; }
 DType dtype_of(nv_bfloat16 * f) { return DType::BF16; }
 DType dtype_of(half * f) { return DType::FP16; }
+DType dtype_of(nv_fp8_e4m3 * f) { return DType::FP8; }
 
 
 
@@ -124,6 +127,11 @@ __device__ float cast_value<float, float>(float val) {
 template<>
 __device__ float cast_value<float, half>(half val) {
     return __half2float(val);
+}
+
+template<>
+__device__ float cast_value<float, nv_fp8_e4m3>(nv_fp8_e4m3 val) {
+    return __nv_fp8_e4m3::operator float(val);
 }
 
 template<>
@@ -275,6 +283,9 @@ __device__ __forceinline__ void stochastic_rounding(float in, __nv_bfloat16 *out
     unsigned int rounded_bits = float_bits & 0x0000FFFF;
     float_bits = (rounded_bits > threshold) ? (float_bits | 0xFFFF) : (float_bits  & ~0xFFFF);
     *out = __float2bfloat16_rn(__uint_as_float(float_bits));
+}
+__device__ __forceinline__ void stochastic_rounding(float in, nv_fp8_e4m3 *out, unsigned int random) {
+    *out = (float)in; // todo - implement this...
 }
 __device__ __forceinline__ void stochastic_rounding(float in, half *out, unsigned int random) {
     *out = (float)in; // todo - implement this...

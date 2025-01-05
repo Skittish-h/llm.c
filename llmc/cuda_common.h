@@ -15,6 +15,7 @@ Common utilities for CUDA code.
 #include <cuda_profiler_api.h>
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
+#include <cuda_fp8.h>
 
 #include "utils.h"
 
@@ -75,6 +76,7 @@ inline void cudaFreeCheck(T** ptr, const char *file, int line) {
 enum PrecisionMode {
     PRECISION_FP32,
     PRECISION_FP16,
+    PRECISION_FP8,
     PRECISION_BF16,
 };
 
@@ -86,6 +88,9 @@ typedef float floatX;
 #elif defined(ENABLE_FP16)
 typedef half floatX;
 #define PRECISION_MODE PRECISION_FP16
+#elif defined(ENABLE_FP8)
+typedef nv_fp8_e4m3 floatX;
+#define PRECISION_MODE PRECISION_FP8
 #else // Default to bfloat16
 typedef __nv_bfloat16 floatX;
 #define PRECISION_MODE PRECISION_BF16
