@@ -206,7 +206,7 @@ __global__ void fused_residual_forward_kernel5(floatX* residual, floatX* normed,
         for(int k = 0; k < x128::size; ++k) {
             float n = s * ((float)res[k] - m); // normalized output
             float o = n * (float)w[k] + (float)b[k]; // scale and shift it
-            out[k] = o;
+            out[k] = (floatX)o;
         }
 
         store128cs(normed + c, out);

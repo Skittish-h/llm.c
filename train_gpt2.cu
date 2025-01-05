@@ -604,7 +604,7 @@ void gpt_build_from_descriptor(GPT2 *model, const char* descriptor) {
             // the layernorm parameters are all initialized to 1
             if (l == 0 && (i == 2 || i == 8 || i == 14)) { // only at l = 0 to init these just once
                 for (size_t j = 0; j < model->param_elements[i]; j++) {
-                    params_memory_cpu[offset + j] = 1.0f;
+                    params_memory_cpu[offset + j] = (floatX)1.0f;
                 }
             }
             // weights tensors are handled here
