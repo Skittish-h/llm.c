@@ -96,7 +96,7 @@ size_t sizeof_dtype(DType type) {
         case DType::FP16:
             return sizeof(half);
         case DType::FP8:
-            return sizeof(nv_fp8_e4m3);
+            return sizeof(__nv_fp8_e4m3);
         case DType::BF16:
             return sizeof(nv_bfloat16);
         default: // handle or get compiler warning
@@ -108,7 +108,7 @@ size_t sizeof_dtype(DType type) {
 DType dtype_of(float* f) { return DType::FP32; }
 DType dtype_of(nv_bfloat16 * f) { return DType::BF16; }
 DType dtype_of(half * f) { return DType::FP16; }
-DType dtype_of(nv_fp8_e4m3 * f) { return DType::FP8; }
+DType dtype_of(__nv_fp8_e4m3 * f) { return DType::FP8; }
 
 
 
@@ -130,7 +130,7 @@ __device__ float cast_value<float, half>(half val) {
 }
 
 template<>
-__device__ float cast_value<float, nv_fp8_e4m3>(nv_fp8_e4m3 val) {
+__device__ float cast_value<float, __nv_fp8_e4m3>(__nv_fp8_e4m3 val) {
     return __nv_fp8_e4m3::operator float(val);
 }
 
@@ -284,7 +284,7 @@ __device__ __forceinline__ void stochastic_rounding(float in, __nv_bfloat16 *out
     float_bits = (rounded_bits > threshold) ? (float_bits | 0xFFFF) : (float_bits  & ~0xFFFF);
     *out = __float2bfloat16_rn(__uint_as_float(float_bits));
 }
-__device__ __forceinline__ void stochastic_rounding(float in, nv_fp8_e4m3 *out, unsigned int random) {
+__device__ __forceinline__ void stochastic_rounding(float in, __nv_fp8_e4m3 *out, unsigned int random) {
     *out = (float)in; // todo - implement this...
 }
 __device__ __forceinline__ void stochastic_rounding(float in, half *out, unsigned int random) {

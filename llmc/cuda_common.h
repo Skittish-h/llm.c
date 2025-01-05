@@ -89,7 +89,7 @@ typedef float floatX;
 typedef half floatX;
 #define PRECISION_MODE PRECISION_FP16
 #elif defined(ENABLE_FP8)
-typedef nv_fp8_e4m3 floatX;
+typedef __nv_fp8_e4m3 floatX;
 #define PRECISION_MODE PRECISION_FP8
 #else // Default to bfloat16
 typedef __nv_bfloat16 floatX;
