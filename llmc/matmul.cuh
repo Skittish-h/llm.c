@@ -74,7 +74,7 @@ __global__ void matmul_backward_bias_kernel9(OutFloat* dbias, const floatX* dout
             if constexpr (!UseAuxBuffer) {
                 dbias[global_oc + k] = (OutFloat)(a + (float)dbias[global_oc + k]);
             } else {
-                dbias[global_oc + k + blockIdx.y * OC] = a;
+                dbias[global_oc + k + blockIdx.y * OC] = (floatX) a;
             }
         }
     }
