@@ -338,7 +338,7 @@ int main(int argc, char *argv[]) {
                 json token_data;
                 token_data["step"]        = t;  // or t+1, depending how you want to index
                 token_data["token"]       = next_token;
-                token_data["text"]        = token_str;
+//                token_data["text"]        = token_str;
                 token_data["logprob"]     = logprob;
 
                 // store input tokens up to t
@@ -346,7 +346,7 @@ int main(int argc, char *argv[]) {
                 for (int idx = 0; idx < t; idx++) {
                     input_tokens_json.push_back(loader.inputs[idx]);
                 }
-                token_data["input_tokens"] = input_tokens_json;
+//                token_data["input_tokens"] = input_tokens_json;
 
                 // store all logits
                 json logits_json = json::array();
