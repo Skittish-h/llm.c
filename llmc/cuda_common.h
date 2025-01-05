@@ -120,9 +120,9 @@ __device__ floatX __ldcs(const floatX* address) {
     return __nv_fp8_e4m3{bf};
 }
 
-// __device__ void __stcs(floatX* address, floatX value) {
-//     __stcs(reinterpret_cast<unsigned short*>(address), ((__nv_fp8_e4m3)value).x);
-// }
+__device__ void __stcs(floatX* address, floatX value) {
+    __stcs(reinterpret_cast<unsigned short*>(address), ((__nv_fp8_e4m3)value).__x);
+}
 #endif
 
 // ----------------------------------------------------------------------------
