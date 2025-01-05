@@ -233,7 +233,6 @@ int main(int argc, char *argv[]) {
     // token length
     int T = args.T;
 
-    // load model
     const char* load_filename = "gpt2_124M.bin";
     GPT2 model;
     gpt2_init_common(&model);
