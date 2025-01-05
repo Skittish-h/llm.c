@@ -114,6 +114,17 @@ __device__ void __stcs(floatX* address, floatX value) {
 }
 #endif
 
+#if defined(ENABLE_FP8)
+__device__ floatX __ldcs(const floatX* address) {
+    unsigned short bf = __ldcs(reinterpret_cast<const unsigned short*>(address));
+    return __nv_fp8_e4m3{bf};
+}
+
+__device__ void __stcs(floatX* address, floatX value) {
+    __stcs(reinterpret_cast<unsigned short*>(address), ((__nv_fp8_e4m3)value).x);
+}
+#endif
+
 // ----------------------------------------------------------------------------
 // Profiler utils
 
