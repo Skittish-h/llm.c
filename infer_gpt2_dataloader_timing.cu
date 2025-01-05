@@ -179,7 +179,7 @@ int main(int argc, char *argv[]) {
     // TODO: set automatically from datafile header
     int T = args.T;
 
-    const char* load_filename = "gpt2_124M.bin";
+    const char* load_filename = "gpt2_124M_bf16.bin";
     GPT2 model;
     // init multi gpu config
     char nccl_init_method[256] = "mpi";  // "tcp" or "fs" or "mpi"
