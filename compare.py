@@ -33,7 +33,7 @@ def compare_runs_with_reference(inputs_dir, names, reference_name, metrics_to_pl
     for file in reference_files:
         with open(os.path.join(inputs_dir, file), "r") as f:
             run_data = json.load(f)
-            reference_data.append(run_data[0])  # Assuming single token per file
+            reference_data.append(run_data[-1])  # Assuming single token per file
 
     # Compare each run with the reference
     for name in names:
@@ -43,7 +43,7 @@ def compare_runs_with_reference(inputs_dir, names, reference_name, metrics_to_pl
         for i, file in enumerate(files):
             with open(os.path.join(inputs_dir, file), "r") as f:
                 run_data = json.load(f)
-                token_data = run_data[0]  # Assuming single token per file
+                token_data = run_data[-1]  # Assuming single token per file
 
                 logits1 = softmax(token_data["logits"])
                 logits2 = softmax(reference_data[i]["logits"])
@@ -104,9 +104,9 @@ def compare_and_plot_with_reference(inputs_dir, output_dir, names, reference_nam
     generate_reference_comparison_plots(data_per_token, names, metrics_to_plot, output_dir)
 
 if __name__ == "__main__":
-    inputs_dir = "saved_logits"
-    output_dir = "lolout"
+    inputs_dir = "saved_logits2"
+    output_dir = "lolout3"
     names = ["FP16", "BF16", "FP32"]
-    reference_name = "FP32"
+    reference_name = "BF16"
     compare_and_plot_with_reference(inputs_dir, output_dir, names, reference_name)
     print(f"Plots comparing metrics to reference '{reference_name}' have been generated in '{output_dir}'.")
