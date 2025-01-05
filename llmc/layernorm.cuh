@@ -177,7 +177,7 @@ __global__ void fused_residual_forward_kernel5(floatX* residual, floatX* normed,
         const x128 in2 = load128cs(inp2 + c);
         x128 out;
         for(int k = 0; k < x128::size; ++k) {
-            out[k] = (floatX)in1[k] + (floatX)in2[k];
+            out[k] = (floatX)((float)in1[k] + (float)in2[k]);
             sum += (float)out[k];
         }
         store128cs(residual + c, out);
