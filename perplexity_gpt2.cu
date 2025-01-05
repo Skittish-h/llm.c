@@ -289,8 +289,10 @@ int main(int argc, char *argv[]) {
     size_t total_token_count = 0;
 
     int eot_token = tokenizer.eot_token;
+    printf("Total tokens in loader: %zu\n", loader.total_num_tokens);
 
     printf("\n---\n");
+
     // For each sample in the prompt set
     for (size_t i = 0; i < loader.shard_num_samples; i++) {
         // Load the prompt from host -> device
@@ -308,8 +310,6 @@ int main(int argc, char *argv[]) {
         }
         printf("\n");
 
-        // We'll store per-token data in a JSON array
-        json sample_data = json::array();
 
         // We'll compute rolling log probabilities for each next token
         // from t = 1 up to T-1 (since to get the next token log prob, we need
@@ -353,36 +353,11 @@ int main(int argc, char *argv[]) {
             total_logprob_sum += logprob;
             total_token_count++;
 
-            // Build JSON entry
-            {
-                json token_data;
-                token_data["step"]  = t;
-                token_data["token"] = actual_next;
-                // token_data["text"] = tokenizer_decode(&tokenizer, actual_next);
-                token_data["logprob"] = logprob;
 
-                // (Optional) store all logits. Beware huge JSONs for large vocab:
-                // json logits_json = json::array();
-                // for (int vi = 0; vi < model.config.vocab_size; vi++) {
-                //     logits_json.push_back(cpu_logits[vi]);
-                // }
-                // token_data["logits"] = logits_json;
-
-                sample_data.push_back(token_data);
-            }
 
             // If we want a "sliding" context rather than "prefix" context,
             // we could shift the tokens in model.inputs. But here we do
             // prefix-based rolling.
-        }
-
-        // Save out the JSON for this sample
-        {
-            char filename[512];
-            sprintf(filename, "saved_ppl_logs/rolling_%s_%zu.json", args.name.c_str(), i);
-            std::ofstream outfs(filename);
-            outfs << sample_data.dump(4) << std::endl;
-            outfs.close();
         }
 
         printf("Finished sample %zu.\n---\n", i);
