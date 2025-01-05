@@ -289,7 +289,7 @@ int main(int argc, char *argv[]) {
     size_t total_token_count = 0;
 
     int eot_token = tokenizer.eot_token;
-    printf("Total tokens in loader: %zu\n", loader.total_num_tokens);
+    printf("Total tokens in loader: %zu\n", loader.shard_num_samples);
 
     printf("\n---\n");
 
