@@ -3,7 +3,6 @@
 #ifndef CUDA_UTILS_CUH
 #define CUDA_UTILS_CUH
 
-#include <cuda_fp8.h>
 #include "cuda_common.h"
 
 // ----------------------------------------------------------------------------
@@ -286,7 +285,7 @@ __device__ __forceinline__ void stochastic_rounding(float in, __nv_bfloat16 *out
     *out = __float2bfloat16_rn(__uint_as_float(float_bits));
 }
 __device__ __forceinline__ void stochastic_rounding(float in, __nv_fp8_e4m3 *out, unsigned int random) {
-    *out = __nv_cvt_float_to_fp8(in, __NV_NOSAT, __NV_E4M3);    // todo - implement this...
+    *out = (__nv_fp8_e4m3)__nv_cvt_float_to_fp8(in, __NV_NOSAT, __NV_E4M3);    // todo - implement this...
 }
 __device__ __forceinline__ void stochastic_rounding(float in, half *out, unsigned int random) {
     *out = (float)in; // todo - implement this...
