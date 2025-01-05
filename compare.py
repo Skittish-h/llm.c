@@ -52,7 +52,7 @@ def compare_runs_with_reference(inputs_dir, names, reference_name, metrics_to_pl
                 tvd = 0.5 * np.sum(np.abs(logits1 - logits2))
                 mse = np.mean((np.array(token_data["logits"]) - np.array(reference_data[i]["logits"]))**2)
                 cosine_sim = 1 - cosine(token_data["logits"], reference_data[i]["logits"])
-                logprob_diff = abs(token_data["logprob"] - reference_data[i]["logprob"])
+                logprob_diff = token_data["logprob"]
 
                 metrics = {
                     "kl_divergence": kl_divergence,
@@ -104,9 +104,9 @@ def compare_and_plot_with_reference(inputs_dir, output_dir, names, reference_nam
     generate_reference_comparison_plots(data_per_token, names, metrics_to_plot, output_dir)
 
 if __name__ == "__main__":
-    inputs_dir = "inputs"
-    output_dir = "reference_outputs"
-    names = ["fp8", "fp16", "fp32", "fp64", "fp4"]
-    reference_name = "fp64"
+    inputs_dir = "saved_logits"
+    output_dir = "lolout"
+    names = ["FP16", "BF16", "FP32"]
+    reference_name = "FP32"
     compare_and_plot_with_reference(inputs_dir, output_dir, names, reference_name)
     print(f"Plots comparing metrics to reference '{reference_name}' have been generated in '{output_dir}'.")

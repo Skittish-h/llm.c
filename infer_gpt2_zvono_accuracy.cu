@@ -222,8 +222,8 @@ void gpt2_forward_copyfree(GPT2 *model, size_t B, size_t T) {
 int main(int argc, char *argv[]) {
     ParsedArgs args = parse_args(argc, argv);
 
-    // Force only 1 token to be generated to satisfy (A)
-    args.n_gen = 1;
+    // Force only 5 token to be generated to satisfy
+    args.n_gen = 5;
 
     // Start environment
     common_start(false, true);
