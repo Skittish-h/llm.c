@@ -95,7 +95,7 @@ size_t sizeof_dtype(DType type) {
             return sizeof(float);
         case DType::FP16:
             return sizeof(half);
-        case DType::FP16:
+        case DType::FP8:
             return sizeof(nv_fp8_e4m3);
         case DType::BF16:
             return sizeof(nv_bfloat16);
