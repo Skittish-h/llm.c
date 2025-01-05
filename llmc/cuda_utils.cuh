@@ -3,6 +3,7 @@
 #ifndef CUDA_UTILS_CUH
 #define CUDA_UTILS_CUH
 
+#include <cuda_fp8.h>
 #include "cuda_common.h"
 
 // ----------------------------------------------------------------------------
