@@ -131,7 +131,7 @@ __device__ float cast_value<float, half>(half val) {
 
 template<>
 __device__ float cast_value<float, __nv_fp8_e4m3>(__nv_fp8_e4m3 val) {
-    return __nv_fp8_e4m3::operator float(val);
+    return static_cast<float>(val);
 }
 
 template<>
