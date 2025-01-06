@@ -233,7 +233,11 @@ int main(int argc, char *argv[]) {
     // token length
     int T = args.T;
 
-    const char* load_filename = "gpt2_124M.bin";
+    #if defined(ENABLE_BF16)
+        const char* load_filename = "gpt2_124M_bf16.bin";
+    #else
+        const char* load_filename = "gpt2_124M.bin";
+    #endif
     GPT2 model;
     gpt2_init_common(&model);
     gpt2_build_from_checkpoint(&model, load_filename);
@@ -382,12 +386,6 @@ int main(int argc, char *argv[]) {
             outfs.close();
         }
     }
-
-    // Optionally print final average logprob across all prompts
-    float final_avg_logprob = (float)logprob_sum / loader.shard_num_samples;
-    float final_ppl         = expf(-final_avg_logprob);
-    printf("Final avg logp across all prompts: %f\n", final_avg_logprob);
-    printf("Final perplexity across all prompts: %f\n", final_ppl);
 
     // cleanup
     gpt2_free(&model);

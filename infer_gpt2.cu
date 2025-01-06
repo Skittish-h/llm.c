@@ -87,15 +87,18 @@ int main(int argc, char *argv[]) {
     // this is a very important line
     common_start(false, true);
 
-    //todo: extract from args
-    const char* load_filename = "gpt2_124M.bin";
+    #if defined(ENABLE_BF16)
+        const char* load_filename = "gpt2_124M_bf16.bin";
+    #else
+        const char* load_filename = "gpt2_124M.bin";
+    #endif
 
     // load model
     GPT2 model;
     gpt2_init_common(&model);
     gpt2_build_from_checkpoint(&model, load_filename);
 
-    model.requires_grad = false;
+    model.requires_grad = true;
 
     // load tokenizer
     Tokenizer tokenizer;
