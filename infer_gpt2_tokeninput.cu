@@ -9,6 +9,7 @@
 
 struct ParsedArgs {
     std::vector<int> tokens;  // List of integer tokens
+    int n_gen;                //number of generated tokens including input tokens
     int top_k;                // Top-K sampling
     float temp;               // Temperature for sampling
     float top_p;              // Top-P (nucleus) sampling
