@@ -86,8 +86,8 @@ ParsedArgs parse_args(int argc, char* argv[]) {
     return result;
 }
 
-// propagate inputs through the network to produce logits.
-// right now, this function is fully synchronous with the host
+// llmc forward pass with removed memcopy of entire input.
+// New tokens are copied manually in the inference chain to the right position
 void gpt2_forward_copyfree(GPT2 *model, size_t B, size_t T) {
     NVTX_RANGE_FN();
     // we must be careful and use size_t instead of int, otherwise
