@@ -100,7 +100,6 @@ void gpt2_forward_copyfree(GPT2 *model, size_t B, size_t T) {
     }
 
     // convenience parameters
-    const size_t V = model->config.vocab_size;
     const size_t Vp = model->config.padded_vocab_size;
     const size_t L = model->config.num_layers;
     const size_t NH = model->config.num_heads;
