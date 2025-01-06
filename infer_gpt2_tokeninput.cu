@@ -13,7 +13,7 @@ struct ParsedArgs {
     float temp;               // Temperature for sampling
     float top_p;              // Top-P (nucleus) sampling
     int seed;                 // Random seed for reproducibility
-    int T;                    // Token length
+    int T;                    // Token length and length of generated output (max 1024)
 };
 
 ParsedArgs parse_args(int argc, char* argv[]) {
@@ -23,7 +23,7 @@ ParsedArgs parse_args(int argc, char* argv[]) {
     result.temp = 1.0;
     result.top_p = 0.8;  // Default value for top_p
     result.seed = 42;    // Default value for seed (-1 means not set)
-    result.T = 64;
+    result.T = 512;       
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
