@@ -21,9 +21,9 @@ ParsedArgs parse_args(int argc, char* argv[]) {
     ParsedArgs result;
     result.tokens.insert(result.tokens.end(), {12128, 318, 845, 3608, 290});
     result.n_gen = 100;
-    result.top_k = 50;  
+    result.top_k = 10;  
     result.temp = 1.0;
-    result.top_p = 1.0;  // Default value for top_p
+    result.top_p = 0.8;  // Default value for top_p
     result.seed = 42;    // Default value for seed (-1 means not set)
     result.T = 64;
 
