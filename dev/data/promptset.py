@@ -4,7 +4,8 @@ Tokenizes our GPU project prompt dataset for inference.
 - The tokenization is GPT-2 tokenizer with tiktoken
 
 The output is written to a newly created promptset/ folder.
-The script prints:
+Timing inference trials need to be to the same token length as the input file.
+
 """
 
 import argparse
