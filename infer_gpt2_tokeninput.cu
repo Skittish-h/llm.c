@@ -19,7 +19,7 @@ struct ParsedArgs {
 
 ParsedArgs parse_args(int argc, char* argv[]) {
     ParsedArgs result;
-    result.tokens.insert(result.tokens.end(), {12128, 318, 845, 3608, 290});
+    result.tokens.insert(result.tokens.end(), {12295, 8066, 1577, 345, 510, 11, 1239, 8066});
     result.n_gen = 100;
     result.top_k = 10;  
     result.temp = 1.0;
