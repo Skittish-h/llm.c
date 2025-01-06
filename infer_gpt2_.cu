@@ -2,50 +2,84 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
-#include <fstream>
 
 #define TESTING
 #include "llmc/promptloader.h"
 #include "train_gpt2.cu"
-#include "packages/json.h"
-
-using json = nlohmann::json;
 
 struct ParsedArgs {
-    std::string in;  // input file path
-    std::string out; // output file path
-    int T;
+    std::vector<int> tokens;  // List of integer tokens
+    int n_gen;                // Number of tokens to generate
+    int top_k;                // Top-K sampling
+    float temp;               // Temperature for sampling
+    float top_p;              // Top-P (nucleus) sampling
+    int seed;                 // Random seed for reproducibility
+    int T;                    // Token length
 };
 
-ParsedArgs parse_args(int argc, char *argv[]) {
+ParsedArgs parse_args(int argc, char* argv[]) {
     ParsedArgs result;
-    result.in = "dev/data/promptset/prompt_64.bin";
-    result.out = "timings.json";
+    result.tokens.insert(result.tokens.end(), {12128, 318, 845, 3608, 290});
+    result.n_gen = 100;
+    result.top_k = 50;  
+    result.temp = 1.0;
+    result.top_p = 1.0;  // Default value for top_p
+    result.seed = 42;    // Default value for seed (-1 means not set)
     result.T = 64;
 
     for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i]; // Convert argv[i] to std::string
-        
-        if (arg == "--in") {
+        std::string arg = argv[i];
+        if (arg == "--tokens") {
+            int j = i + 1;
+            for (; j < argc; ++j) {
+                std::string nextArg = argv[j];
+                if (nextArg.rfind("--", 0) == 0) { // Check if the next argument starts with '--'
+                    break;
+                }
+                result.tokens.push_back(std::atoi(nextArg.c_str()));
+            }
+            i = j - 1; // Adjust index to skip parsed tokens
+        } else if (arg == "--n_gen") {
             if (i + 1 < argc) {
-                result.in = argv[i + 1]; // Direct assignment works for std::string
+                result.n_gen = std::atoi(argv[i + 1]);
                 i += 1;
             } else {
-                std::cerr << "Error: --in flag provided but no string found.\n";
+                std::cerr << "Error: --n_gen flag provided but no integer value found.\n";
             }
-        } else if (arg == "--out") {
+        } else if (arg == "--top_k") {
+            if (i + 1 < argc) {
+                result.top_k = std::atoi(argv[i + 1]);
+                i += 1;
+            } else {
+                std::cerr << "Error: --top_k flag provided but no integer value found.\n";
+            }
+        } else if (arg == "--temp") {
+            if (i + 1 < argc) {
+                result.temp = std::atof(argv[i + 1]);
+                i += 1;
+            } else {
+                std::cerr << "Error: --temp flag provided but no float value found.\n";
+            }
+        } else if (arg == "--top_p") {
+            if (i + 1 < argc) {
+                result.top_p = std::atof(argv[i + 1]);
+                i += 1;
+            } else {
+                std::cerr << "Error: --top_p flag provided but no float value found.\n";
+            }
+        } else if (arg == "--seed") {
+            if (i + 1 < argc) {
+                result.seed = std::atoi(argv[i + 1]);
+                i += 1;
+            } else {
+                std::cerr << "Error: --seed flag provided but no integer value found.\n";
+            }
+        } else if (arg == "--t") {
             if (i + 1 < argc) {
                 result.out = argv[i + 1];
                 i += 1;
             } else {
-                std::cerr << "Error: --out flag provided but no string found.\n";
-            }
-        } else if (arg == "--t") {
-            if (i + 1 < argc) {
-                result.T = atoi(argv[i + 1]);
-                i += 1;
-            } else {
-                std::cerr << "Error: --T flag provided but no int found.\n";
+                std::cerr << "Error: --t flag provided but no int found.\n";
             }
         }
     }
@@ -158,21 +192,6 @@ int main(int argc, char *argv[]) {
     // this is a very important line
     common_start(false, true);
 
-    // Declare CUDA events
-    cudaEvent_t start, end;
-    cudaEventCreate(&start);
-    cudaEventCreate(&end);
-
-    // Containers for tracking durations
-    std::vector<float> model_init_durations;
-    std::vector<float> copy_to_device_durations;
-    std::vector<float> forward_pass_durations;
-    std::vector<float> copy_to_host_durations;
-    std::vector<float> sampling_durations;
-    std::vector<float> copy_next_token_durations;
-
-    float current_duration;
-
     // batch size
     int B = 1;
     // token length, need to be the same as the prompt datafile
@@ -186,145 +205,77 @@ int main(int argc, char *argv[]) {
         const char* load_filename = "gpt2_124M.bin";
     #endif
     GPT2 model;
+    gpt2_init_common(&model);
+    gpt2_build_from_checkpoint(&model, load_filename);
+    model.requires_grad = false;
+
+    assert(0 <= T && T <= model.config.max_seq_len);
+
     // init multi gpu config
     char nccl_init_method[256] = "mpi";  // "tcp" or "fs" or "mpi"
     char server_ip[256] = "";  // doesn't matter when using MPI
     char fs_path[256] = "";  // doesn't matter when using MPI
+    multi_gpu_config = multi_gpu_config_init(
+        -1, // num processes
+        -1, // process rank
+        -1, // gpus per node
+        server_ip,
+        fs_path,
+        nccl_init_method
+    );
+    set_zero_configs(&multi_gpu_config, 0, model.num_parameters);
 
-    // load model
-    int num_initializations = 5;
-    for (int i=0; i<num_initializations; i++) {
-        cudaEventRecord(start);
-        gpt2_init_common(&model);
-        gpt2_build_from_checkpoint(&model, load_filename);
-        model.requires_grad = false;
-
-        assert(0 <= T && T <= model.config.max_seq_len);
-
-        multi_gpu_config = multi_gpu_config_init(
-            -1, // num processes
-            -1, // process rank
-            -1, // gpus per node
-            server_ip,
-            fs_path,
-            nccl_init_method
-        );
-        set_zero_configs(&multi_gpu_config, 0, model.num_parameters);
-
-        gpt2_allocate_state(&model, B, T);
-        cudaEventRecord(end);
-        cudaEventSynchronize(end);
-        
-        cudaEventElapsedTime(&current_duration, start, end);
-        model_init_durations.push_back(current_duration);
-
-        if (i < num_initializations - 1) gpt2_free(&model);
-    }
+    gpt2_allocate_state(&model, B, T);
 
     // load tokenizer
     Tokenizer tokenizer;
     tokenizer_init(&tokenizer, "gpt2_tokenizer.bin");
 
-    // load promptloader, T is read from the dataset file
-    PromptLoader loader;
-    promptloader_init(&loader, args.in.c_str(), B, T, multi_gpu_config.process_rank, multi_gpu_config.num_processes);
-
     //inference related memeroy allocation and settings
     floatX* cpu_logits_raw = (floatX*) mallocCheck(model.config.vocab_size * sizeof(floatX));
     float* cpu_logits = (float*) mallocCheck(model.config.vocab_size * sizeof(float));
+    
 
     int eot_token = tokenizer.eot_token;
+    unsigned long long sample_rng_state = (unsigned long long)args.seed;
 
-    printf("\n---\n");
+    int gen_tokens[B * T];
 
-    for (size_t i = 0; i < loader.shard_num_samples; i++)
+    for(size_t i = 0; i < B * T; ++i) {
+        if (i < args.tokens.size()) gen_tokens[i] = args.tokens[i];
+        else gen_tokens[i] = eot_token;
+    }
+
+    // copy inputs/targets to the model
+    cudaCheck(cudaMemcpy(model.inputs, gen_tokens, B * T * sizeof(int), cudaMemcpyHostToDevice));
+
+    int t = 0;
+    while (t < T && gen_tokens[t] != eot_token)
     {
-        // Print progress
-        printf("Processing sample %zu of %zu (%.2f%% completed)\n", 
-           i + 1, loader.shard_num_samples, 
-           ((float)(i + 1) / loader.shard_num_samples) * 100);
-        
-        promptloader_next_batch(&loader);
-        // copy inputs/targets to the model
-        cudaEventRecord(start);
-        cudaCheck(cudaMemcpy(model.inputs, loader.inputs, B * T * sizeof(int), cudaMemcpyHostToDevice));
-        cudaEventRecord(end);
-        cudaEventSynchronize(end);
-        
-        cudaEventElapsedTime(&current_duration, start, end);
-        copy_to_device_durations.push_back(current_duration);
-
-
-        int t = 0;
-        while (t < T && loader.inputs[t] != eot_token)
-        {
-            t++;
-        }
-
-        for (; t < T; t++) {
-            cudaEventRecord(start);
-            gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
-            cudaEventRecord(end);
-            cudaEventSynchronize(end);
-            cudaEventElapsedTime(&current_duration, start, end);
-            forward_pass_durations.push_back(current_duration);
-
-            // get the V-dimensional vector probs[0, t-1, :]
-            floatX* logits = model.acts.output + (t - 1) * model.config.padded_vocab_size;
-            // move logits back to CPU and sample (note we only move the first vocab_size logits, ignoring the padding)
-            cudaEventRecord(start);
-            cudaCheck(cudaMemcpy(cpu_logits_raw, logits, model.config.vocab_size * sizeof(floatX), cudaMemcpyDeviceToHost));
-            // convert to FP32 into cpu_logits (this does nothing useful if floatX == float)
-            for (int i = 0; i < model.config.vocab_size; i++) {
-                cpu_logits[i] = (float)cpu_logits_raw[i];
-            }
-            cudaEventRecord(end);
-            cudaEventSynchronize(end);
-            cudaEventElapsedTime(&current_duration, start, end);
-            copy_to_host_durations.push_back(current_duration);
-
-            // sample the next token
-            cudaEventRecord(start);
-            int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
-            cudaEventRecord(end);
-            cudaEventSynchronize(end);
-            cudaEventElapsedTime(&current_duration, start, end);
-            sampling_durations.push_back(current_duration);
-
-            cudaEventRecord(start);
-            cudaCheck(cudaMemcpy(model.inputs + t, &next_token, sizeof(int), cudaMemcpyHostToDevice));
-            cudaEventRecord(end);
-            cudaEventSynchronize(end);
-            cudaEventElapsedTime(&current_duration, start, end);
-            copy_next_token_durations.push_back(current_duration);
-        }
+        safe_printf(tokenizer_decode(&tokenizer, gen_tokens[t]));
+        t++;
     }
+    for (; t < T; t++) {
+        gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
+        // get the V-dimensional vector probs[0, t-1, :]
+        floatX* logits = model.acts.output + (t - 1) * model.config.padded_vocab_size;
+        // move logits back to CPU and sample (note we only move the first vocab_size logits, ignoring the padding)
+        cudaCheck(cudaMemcpy(cpu_logits_raw, logits, model.config.vocab_size * sizeof(floatX), cudaMemcpyDeviceToHost));
+        // convert to FP32 into cpu_logits (this does nothing useful if floatX == float)
+        for (int i = 0; i < model.config.vocab_size; i++) {
+            cpu_logits[i] = (float)cpu_logits_raw[i];
+        }
+        // sample the next token
+        float coin = random_f32(&sample_rng_state);
+        int next_token = sample_softmax_topk_topp(cpu_logits, model.config.vocab_size, coin, args.top_k, args.top_p, args.temp);
+        // int next_token = sample_argmax(cpu_logits, model.config.vocab_size);
+        cudaCheck(cudaMemcpy(model.inputs + t, &next_token, sizeof(int), cudaMemcpyHostToDevice));
 
-    fflush(stdout);
-
+        const char* token_str = tokenizer_decode(&tokenizer, next_token);
+        safe_printf(token_str);
+        fflush(stdout);
+    }
     gpt2_free(&model);
-    promptloader_free(&loader);
     tokenizer_free(&tokenizer);
-
-    json timings;
-
-    // Store raw durations for each category in the JSON object
-    timings["model_initialization"] = model_init_durations;
-    timings["copy_to_device"] = copy_to_device_durations;
-    timings["forward_pass"] = forward_pass_durations;
-    timings["copy_to_host"] = copy_to_host_durations;
-    timings["sampling"] = sampling_durations;
-    timings["copy_next_token"] = copy_next_token_durations;
-
-    // Write JSON object to file
-    std::ofstream out_file(args.out);
-    if (out_file.is_open()) {
-        out_file << timings.dump(4); // Pretty print with 4-space indentation
-        out_file.close();
-        printf("Raw durations written to %s\n", args.out.c_str());
-    } else {
-        printf("Error: Unable to open output file %s\n", args.out.c_str());
-    }
-
     return 0;
 }
