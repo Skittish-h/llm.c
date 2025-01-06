@@ -9,7 +9,6 @@
 
 struct ParsedArgs {
     std::vector<int> tokens;  // List of integer tokens
-    int n_gen;                // Number of tokens to generate
     int top_k;                // Top-K sampling
     float temp;               // Temperature for sampling
     float top_p;              // Top-P (nucleus) sampling
@@ -20,7 +19,6 @@ struct ParsedArgs {
 ParsedArgs parse_args(int argc, char* argv[]) {
     ParsedArgs result;
     result.tokens.insert(result.tokens.end(), {12295, 8066, 1577, 345, 510, 11, 1239, 8066});
-    result.n_gen = 100;
     result.top_k = 10;  
     result.temp = 1.0;
     result.top_p = 0.8;  // Default value for top_p
@@ -39,13 +37,6 @@ ParsedArgs parse_args(int argc, char* argv[]) {
                 result.tokens.push_back(std::atoi(nextArg.c_str()));
             }
             i = j - 1; // Adjust index to skip parsed tokens
-        } else if (arg == "--n_gen") {
-            if (i + 1 < argc) {
-                result.n_gen = std::atoi(argv[i + 1]);
-                i += 1;
-            } else {
-                std::cerr << "Error: --n_gen flag provided but no integer value found.\n";
-            }
         } else if (arg == "--top_k") {
             if (i + 1 < argc) {
                 result.top_k = std::atoi(argv[i + 1]);
