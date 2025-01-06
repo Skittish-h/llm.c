@@ -13,17 +13,18 @@ struct ParsedArgs {
     float temp;               // Temperature for sampling
     float top_p;              // Top-P (nucleus) sampling
     int seed;                 // Random seed for reproducibility
-    int T;                    // Token length and length of generated output (max 1024)
+    int T;                    // Token length
 };
 
 ParsedArgs parse_args(int argc, char* argv[]) {
     ParsedArgs result;
     result.tokens.insert(result.tokens.end(), {12295, 8066, 1577, 345, 510, 11, 1239, 8066});
+    result.n_gen = 64;
     result.top_k = 10;  
     result.temp = 1.0;
     result.top_p = 0.8;  // Default value for top_p
     result.seed = 42;    // Default value for seed (-1 means not set)
-    result.T = 512;       
+    result.T = 1024;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -37,6 +38,13 @@ ParsedArgs parse_args(int argc, char* argv[]) {
                 result.tokens.push_back(std::atoi(nextArg.c_str()));
             }
             i = j - 1; // Adjust index to skip parsed tokens
+        } else if (arg == "--n_gen") {
+            if (i + 1 < argc) {
+                result.n_gen = std::atoi(argv[i + 1]);
+                i += 1;
+            } else {
+                std::cerr << "Error: --n_gen flag provided but no integer value found.\n";
+            }
         } else if (arg == "--top_k") {
             if (i + 1 < argc) {
                 result.top_k = std::atoi(argv[i + 1]);
@@ -200,6 +208,7 @@ int main(int argc, char *argv[]) {
     model.requires_grad = false;
 
     assert(0 <= T && T <= model.config.max_seq_len);
+    assert(0 <= args.n_gen && args.n_gen <= T);
 
     // init multi gpu config
     char nccl_init_method[256] = "mpi";  // "tcp" or "fs" or "mpi"
@@ -245,7 +254,7 @@ int main(int argc, char *argv[]) {
         safe_printf(tokenizer_decode(&tokenizer, gen_tokens[t]));
         t++;
     }
-    for (; t < T; t++) {
+    for (; t < args.n_gen; t++) {
         gpt2_forward_copyfree(&model, B, CEIL_DIV(t, min(T, 256)) * min(T, 256));
         // get the V-dimensional vector probs[0, t-1, :]
         floatX* logits = model.acts.output + (t - 1) * model.config.padded_vocab_size;
