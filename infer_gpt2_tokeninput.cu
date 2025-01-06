@@ -76,7 +76,7 @@ ParsedArgs parse_args(int argc, char* argv[]) {
             }
         } else if (arg == "--t") {
             if (i + 1 < argc) {
-                result.t = atoi(argv[i + 1)];
+                result.T = atoi(argv[i + 1]);
                 i += 1;
             } else {
                 std::cerr << "Error: --t flag provided but no int found.\n";
