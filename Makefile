@@ -254,7 +254,7 @@ ifeq ($(NVCC),)
     $(info ✗ nvcc not found, skipping GPU/CUDA builds)
 else
     $(info ✓ nvcc found, including GPU/CUDA support)
-    TARGETS += train_gpt2cu test_gpt2cu infer_gpt2cu infer_gpt2_dataloadercu infer_gpt2_dataloader_timingcu train_gpt2fp32cu test_gpt2fp32cu profile_gpt2cu perplexity_gpt2cu infer_gpt2_zvono_accuracy infer_gpt2_kerneljancu $(NVCC_CUDNN)
+    TARGETS += train_gpt2cu test_gpt2cu infer_gpt2cu infer_gpt2_tokeninputcu infer_gpt2_dataloader_timingcu train_gpt2fp32cu test_gpt2fp32cu profile_gpt2cu perplexity_gpt2cu infer_gpt2_zvono_accuracy infer_gpt2_timing_devicecu infer_gpt2_timing_hostcu $(NVCC_CUDNN)
 endif
 
 $(info ---------------------------------------------)
@@ -283,7 +283,7 @@ test_gpt2cu: test_gpt2.cu $(NVCC_CUDNN)
 infer_gpt2cu: infer_gpt2.cu $(NVCC_CUDNN)
 	$(NVCC) $(NVCC_FLAGS) $(PFLAGS) $^ $(NVCC_LDFLAGS) $(NVCC_INCLUDES) $(NVCC_LDLIBS) $(CUDA_OUTPUT_FILE)
 
-infer_gpt2_dataloadercu: infer_gpt2_dataloader.cu $(NVCC_CUDNN)
+infer_gpt2_tokeninputcu: infer_gpt2_tokeninput.cu $(NVCC_CUDNN)
 	$(NVCC) $(NVCC_FLAGS) $(PFLAGS) $^ $(NVCC_LDFLAGS) $(NVCC_INCLUDES) $(NVCC_LDLIBS) $(CUDA_OUTPUT_FILE)
 
 infer_gpt2_dataloader_timingcu: infer_gpt2_dataloader_timing.cu $(NVCC_CUDNN)
@@ -292,10 +292,10 @@ infer_gpt2_dataloader_timingcu: infer_gpt2_dataloader_timing.cu $(NVCC_CUDNN)
 infer_gpt2_zvono_accuracy: infer_gpt2_zvono_accuracy.cu $(NVCC_CUDNN)
 	$(NVCC) $(NVCC_FLAGS) $(PFLAGS) $^ $(NVCC_LDFLAGS) $(NVCC_INCLUDES) $(NVCC_LDLIBS) $(CUDA_OUTPUT_FILE)
 
-infer_gpt2_kerneljancu: infer_gpt2_kerneljan.cu $(NVCC_CUDNN)
+infer_gpt2_timing_devicecu: infer_gpt2_timing_device.cu $(NVCC_CUDNN)
 	$(NVCC) $(NVCC_FLAGS) $(PFLAGS) $^ $(NVCC_LDFLAGS) $(NVCC_INCLUDES) $(NVCC_LDLIBS) $(CUDA_OUTPUT_FILE)
 
-infer_gpt2_antoncu: infer_gpt2_anton.cu $(NVCC_CUDNN)
+infer_gpt2_timing_hostcu: infer_gpt2_timing_host.cu $(NVCC_CUDNN)
 	$(NVCC) $(NVCC_FLAGS) $(PFLAGS) $^ $(NVCC_LDFLAGS) $(NVCC_INCLUDES) $(NVCC_LDLIBS) $(CUDA_OUTPUT_FILE)
 
 test_gpt2fp32cu: test_gpt2_fp32.cu
