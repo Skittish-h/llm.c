@@ -87,12 +87,15 @@ make perplexity_gpt2cu
 
 ## Model Divergence Scripts
 
-To collect logit data for divergence analysis, follow the regular run script, but compile and run `infer_gpt2_divergence.cu` instead of `infer_gpt2.cu`.
-First make sure the result of the model has a directory to save the results to with `mkdir saved_logits`.
-Then run the script with the same flags as `infer_gpt2.cu` and a name flag which will identify the results of the run.
+To collect logit data for divergence analysis, run `run_divergence.ipynb` in Google colab
+i.e. `https://colab.research.google.com/github/Skittish-h/llm.c/blob/master/infer_related_scripts/run_divergence.ipynb`
+
+If you want to run the perplexity experiments in your shell:
 ```bash
+python infer_related_scripts/promptset.py -t 64
+mkdir -p saved_logits
 make infer_gpt2_divergencecu
-./infer_gpt2_zvono_accuracy --name fp16 # ... same flags as infer_gpt2.cu 
+/infer_gpt2_divergencecu --name fp16 -t 64 -i "infer_related_scripts/promptset/prompt_64.bin"
 ```
 Then to run analysis, modify the variables of compare.py to match the name flags used when collecting logit data.
 ```python
