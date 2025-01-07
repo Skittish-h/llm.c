@@ -11,10 +11,24 @@ Timing inference trials need to be to the same token length as the input file.
 import argparse
 import os
 import tiktoken
+import numpy as np
 
 # -----------------------------------------------------------------------------
 DATA_CACHE_DIR = os.path.join(os.path.dirname(__file__), "promptset")
 debug = False
+
+HEADERS_INFO = {
+    "gpt-2": {
+        "magic": 20240520,
+        "version": 1,
+        "token_dtype": np.uint16,
+    },
+    "llama-3": {
+        "magic": 20240801,
+        "version": 7,
+        "token_dtype": np.uint32,
+    },
+}
 
 def write_datafile(filename, toks, model_desc="gpt-2"):
     """
