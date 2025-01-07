@@ -56,6 +56,10 @@ You can override these defaults by specifying arguments during execution. For ex
 ```bash
 ./infer_gpt2cu –tokens 12295, 8066, 1577 –n_gen 128 –top_k 20 –temp 0.7 –top_p 0.9 –seed 123
 ```
+You can also tokenize a prompt and pipe ...
+```bash
+./infer_gpt2cu --tokens $(python infer_related_scripts/tokenize.py "I want to go to bed")
+```
 
 ## Run timing experiments
 
@@ -95,7 +99,7 @@ If you want to run the perplexity experiments in your shell:
 python infer_related_scripts/promptset.py -t 64
 mkdir -p saved_logits
 make infer_gpt2_divergencecu
-/infer_gpt2_divergencecu --name fp16 -t 64 -i "infer_related_scripts/promptset/prompt_64.bin"
+./infer_gpt2_divergencecu --name fp16 -t 64 -i "infer_related_scripts/promptset/prompt_64.bin"
 ```
 Then to run analysis, modify the variables of compare.py to match the name flags used when collecting logit data.
 ```python
