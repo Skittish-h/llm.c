@@ -39,8 +39,21 @@ All inference scripts default to the current state of the repo - FP16 accuracy.
 
 ## Run inference
 
-To run inference execute `./infer_gpt2cu` with default settings and default input tokens.
-`
+To run inference, execute the command: \
+`./infer_gpt2cu`
+- **`--tokens`**: List of integer tokens for input. Default: `{12295, 8066, 1577, 345, 510, 11, 1239, 8066}`.
+By default, the script uses the following input tokens and settings:
+
+- **`--tokens`**: Specifies the list of integer tokens for input. Default: `{12295, 8066, 1577, 345, 510, 11, 1239, 8066}`.
+- **`--n_gen`**: Total number of tokens to generate, including the input tokens. Default: `64`.
+- **`--top_k`**: Top-K sampling parameter to control randomness in token selection. Default: `10`.
+- **`--temp`**: Sampling temperature, affecting diversity in token generation. Default: `1.0`.
+- **`--top_p`**: Top-P (nucleus) sampling parameter for probability thresholding. Default: `0.8`.
+- **`--seed`**: Random seed for reproducibility of results. Default: `42` (`-1` to disable seed setting).
+- **`--t`**: Token length for input allocation. Default: `1024`.
+
+You can override these defaults by specifying arguments during execution. For example:
+`./infer_gpt2cu –tokens 12295, 8066, 1577 –n_gen 128 –top_k 20 –temp 0.7 –top_p 0.9 –seed 123`
 
 ## Perplexity Scripts
 
