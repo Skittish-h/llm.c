@@ -192,34 +192,30 @@ int main(int argc, char *argv[]) {
     char fs_path[256] = "";  // doesn't matter when using MPI
 
     // load model
-    int num_initializations = 1;
-    for (int i=0; i<num_initializations; i++) {
-        cudaEventRecord(start);
-        gpt2_init_common(&model);
-        gpt2_build_from_checkpoint(&model, load_filename);
-        model.requires_grad = false;
 
-        assert(0 <= T && T <= model.config.max_seq_len);
+    cudaEventRecord(start);
+    gpt2_init_common(&model);
+    gpt2_build_from_checkpoint(&model, load_filename);
+    model.requires_grad = false;
 
-        multi_gpu_config = multi_gpu_config_init(
-            -1, // num processes
-            -1, // process rank
-            -1, // gpus per node
-            server_ip,
-            fs_path,
-            nccl_init_method
-        );
-        set_zero_configs(&multi_gpu_config, 0, model.num_parameters);
+    assert(0 <= T && T <= model.config.max_seq_len);
 
-        gpt2_allocate_state(&model, B, T);
-        cudaEventRecord(end);
-        cudaEventSynchronize(end);
-        
-        cudaEventElapsedTime(&current_duration, start, end);
-        model_init_durations.push_back(current_duration);
+    multi_gpu_config = multi_gpu_config_init(
+        -1, // num processes
+        -1, // process rank
+        -1, // gpus per node
+        server_ip,
+        fs_path,
+        nccl_init_method
+    );
+    set_zero_configs(&multi_gpu_config, 0, model.num_parameters);
 
-        if (i < num_initializations - 1) gpt2_free(&model);
-    }
+    gpt2_allocate_state(&model, B, T);
+    cudaEventRecord(end);
+    cudaEventSynchronize(end);
+    
+    cudaEventElapsedTime(&current_duration, start, end);
+    model_init_durations.push_back(current_duration);
 
     // load tokenizer
     Tokenizer tokenizer;
