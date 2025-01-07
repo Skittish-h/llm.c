@@ -285,7 +285,7 @@ int main(int argc, char *argv[]) {
 
             // sample the next token
             cudaEventRecord(start);
-            laoder.inputs[t] = sample_argmax(cpu_logits, model.config.vocab_size);
+            loader.inputs[t] = sample_argmax(cpu_logits, model.config.vocab_size);
             cudaEventRecord(end);
             cudaEventSynchronize(end);
             cudaEventElapsedTime(&current_duration, start, end);
