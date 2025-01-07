@@ -7,8 +7,8 @@ This sections gives a short overview of newly created and edited files in this `
 ### Created files
 
 [`infer_gpt2.cu`](../infer_gpt2.cu) Inference script for handling user input tokens\
-[`infer_gpt2_timing_host.cu`](../infer_gpt2_timing_host.cu) Inference script with timings and dataloader.\
-[`infer_gpt2_timing_device.cu`](../infer_gpt2_timing_device.cu) Inference script with timings and dataloader with token sampling on device.\
+[`infer_gpt2_timing_host.cu`](../infer_gpt2_timing_host.cu) Inference script with timings and dataloader with token sampling on host.\
+[`infer_gpt2_timing_device.cu`](../infer_gpt2_timing_device.cu) Inference script with timings and dataloader with token sampling on device with argmax kernel.\
 [`infer_gpt2_zvono_accuracy.cu`](../infer_gpt2_zvono_accuracy.cu) Inference script for collecting logits for perplexity analysis.\
 
 [`llmc/promptloader.h`](../llmc/promptloader.h) Dataloader for tokenized prompts\
@@ -52,8 +52,24 @@ By default, the script uses the following input tokens and settings:
 - **`--seed`**: Random seed for reproducibility of results. Default: `42` (`-1` to disable seed setting).
 - **`--t`**: Token length for input allocation. Default: `1024`.
 
-You can override these defaults by specifying arguments during execution. For example:
-`./infer_gpt2cu –tokens 12295, 8066, 1577 –n_gen 128 –top_k 20 –temp 0.7 –top_p 0.9 –seed 123`
+You can override these defaults by specifying arguments during execution. For example:\
+```bash
+./infer_gpt2cu –tokens 12295, 8066, 1577 –n_gen 128 –top_k 20 –temp 0.7 –top_p 0.9 –seed 123
+```
+
+## Run timing experiments
+
+To run our timing experiments, execute the following bash script. You can specify the floating point precision through an argument in the script:
+```bash
+cd infer_related_scripts/
+sh run_performance_experiments.sh FP16
+sh run_performance_experiments.sh FP32
+sh run_performance_experiments.sh BF16
+```
+
+Attentione! You can only run the script from within the directory [`infer_related_scripts/`](../infer_related_scripts/).
+
+The timings will be written as JSON files to `infer_related_scripts/timimgs/`.
 
 ## Perplexity Scripts
 
@@ -62,14 +78,13 @@ i.e. `https://colab.research.google.com/github/Skittish-h/llm.c/blob/master/infe
 
 ## Model Divergence Scripts
 
-To collect logit data for divergence analysis, follow the regular run script, but compile and run `infer_gpt2_zvono_accuracy.cu` instead of `infer_gpt2.cu`.
+To collect logit data for divergence analysis, follow the regular run script, but compile and run `infer_gpt2_divergence.cu` instead of `infer_gpt2.cu`.
 First make sure the result of the model has a directory to save the results to with `mkdir saved_logits`.
 Then run the script with the same flags as `infer_gpt2.cu` and a name flag which will identify the results of the run.
 ```bash
-make infer_gpt2_zvono_accuracy
+make infer_gpt2_divergencecu
 ./infer_gpt2_zvono_accuracy --name fp16 # ... same flags as infer_gpt2.cu 
 ```
-
 Then to run analysis, modify the variables of compare.py to match the name flags used when collecting logit data.
 ```python
 # compare.py
