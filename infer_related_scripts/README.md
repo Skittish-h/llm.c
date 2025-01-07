@@ -56,7 +56,7 @@ You can override these defaults by specifying arguments during execution. For ex
 ```bash
 ./infer_gpt2cu –tokens 12295, 8066, 1577 –n_gen 128 –top_k 20 –temp 0.7 –top_p 0.9 –seed 123
 ```
-You can also tokenize a prompt and pipe ...
+You can also tokenize a prompt and pass the tokens to the inference script in a single command:
 ```bash
 ./infer_gpt2cu --tokens $(python infer_related_scripts/tokenize.py "I want to go to bed")
 ```
