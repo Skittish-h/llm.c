@@ -96,7 +96,7 @@ ParsedArgs parse_args(int argc, char* argv[]) {
             } else {
                 std::cerr << "Error: --out flag provided but no string found.\n";
             }
-        } else if (arg == "--T") {
+        } else if (arg == "--t") {
             if (i + 1 < argc) {
                 result.T = std::atoi(argv[i + 1]);
                 i += 1;
