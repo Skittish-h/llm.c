@@ -1,4 +1,4 @@
-# Aplied GPU Programming - Inference Related Scripts
+# Applied GPU Programming - Inference Related Scripts
 
 ## Overview
 
@@ -84,7 +84,7 @@ i.e. `https://colab.research.google.com/github/Skittish-h/llm.c/blob/master/infe
 
 If you want to run the perplexity experiments in your shell:
 ```bash
-python infer_related_scripts/promptset.py -t 32 -i ../ptb/ptb.test.txt
+python infer_related_scripts/promptset.py -t 64 -i ../ptb/ptb.test.txt
 make perplexity_gpt2cu
 ./perplexity_gpt2cu
 ```
