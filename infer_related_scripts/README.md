@@ -71,10 +71,19 @@ Attentione! You can only run the script from within the directory [`infer_relate
 
 The timings will be written as JSON files to `infer_related_scripts/timimgs/`.
 
+To execute the dedicated `timing_host` and `timimg_device` cuda scripts, refer to the content of the bash script.
+
 ## Perplexity Scripts
 
 A notebook is provided that will run inference on the PTB dataset is located at `run_perplexity.ipynb`, it is meant to be opened in colab
 i.e. `https://colab.research.google.com/github/Skittish-h/llm.c/blob/master/infer_related_scripts/run_perplexity.ipynb`
+
+If you want to run the perplexity experiments in your shell:
+```bash
+python infer_related_scripts/promptset,py -t 32 -i ../ptb/ptb.test.txt
+make perplexity_gpt2cu
+./perplexity_gpt2cu
+```
 
 ## Model Divergence Scripts
 
