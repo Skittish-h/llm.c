@@ -192,7 +192,7 @@ int main(int argc, char *argv[]) {
     char fs_path[256] = "";  // doesn't matter when using MPI
 
     // load model
-    int num_initializations = 5;
+    int num_initializations = 1;
     for (int i=0; i<num_initializations; i++) {
         cudaEventRecord(start);
         gpt2_init_common(&model);
