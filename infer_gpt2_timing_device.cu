@@ -20,7 +20,7 @@ struct ParsedArgs {
 
 ParsedArgs parse_args(int argc, char *argv[]) {
     ParsedArgs result;
-    result.in = "dev/data/promptset/prompt_64.bin";
+    result.in = "infer_related_scripts/promptset/prompt_64.bin";
     result.out = "timings.json";
     result.T = 64;
 
