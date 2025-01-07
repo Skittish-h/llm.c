@@ -35,7 +35,7 @@ ParsedArgs parse_args(int argc, char* argv[]) {
     result.temp = 1.0;               // Not used in perplexity mode
     result.top_p = 1.0;              // Not used in perplexity mode
     result.seed = 42;                // Default value for seed
-    result.in = "dev/data/promptset/prompt_64.bin";
+    result.in = "infer_related_scripts/promptset/prompt_64.bin";
     result.out = "out.txt";
     result.T = 64;
     result.name = "default";
