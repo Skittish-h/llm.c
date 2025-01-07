@@ -52,7 +52,7 @@ By default, the script uses the following input tokens and settings:
 - **`--seed`**: Random seed for reproducibility of results. Default: `42` (`-1` to disable seed setting).
 - **`--t`**: Token length for input allocation. Default: `1024`.
 
-You can override these defaults by specifying arguments during execution. For example:\
+You can override these defaults by specifying arguments during execution. For example:
 ```bash
 ./infer_gpt2cu –tokens 12295, 8066, 1577 –n_gen 128 –top_k 20 –temp 0.7 –top_p 0.9 –seed 123
 ```
@@ -80,7 +80,7 @@ To execute the dedicated `timing_host` and `timimg_device` cuda scripts, refer t
 ## Perplexity Scripts
 
 A notebook is provided that will run inference on the PTB dataset is located at `run_perplexity.ipynb`, it is meant to be opened in colab
-i.e. `https://colab.research.google.com/github/Skittish-h/llm.c/blob/master/infer_related_scripts/run_perplexity.ipynb`
+i.e. https://colab.research.google.com/github/Skittish-h/llm.c/blob/master/infer_related_scripts/run_perplexity.ipynb
 
 If you want to run the perplexity experiments in your shell:
 ```bash
@@ -92,7 +92,7 @@ make perplexity_gpt2cu
 ## Model Divergence Scripts
 
 To collect logit data for divergence analysis, run `run_divergence.ipynb` in Google colab
-i.e. `https://colab.research.google.com/github/Skittish-h/llm.c/blob/master/infer_related_scripts/run_divergence.ipynb`
+i.e. https://colab.research.google.com/github/Skittish-h/llm.c/blob/master/infer_related_scripts/run_divergence.ipynb
 
 If you want to run the perplexity experiments in your shell:
 ```bash
