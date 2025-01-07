@@ -30,6 +30,7 @@ ParsedArgs parse_args(int argc, char* argv[]) {
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--tokens") {
+            result.tokens.clear();
             int j = i + 1;
             for (; j < argc; ++j) {
                 std::string nextArg = argv[j];
