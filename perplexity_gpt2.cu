@@ -367,7 +367,6 @@ int main(int argc, char *argv[]) {
     float final_avg_logprob = (float) (total_logprob_sum / (double) total_token_count);
     float final_ppl = expf(-final_avg_logprob);
 
-    printf("Total tokens measured: %zu\n", total_token_count);
     printf("Final avg logp across all tokens: %.6f\n", final_avg_logprob);
     printf("Final perplexity across all tokens: %.6f\n", final_ppl);
 

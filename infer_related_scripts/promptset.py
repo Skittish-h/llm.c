@@ -15,7 +15,7 @@ import numpy as np
 
 # -----------------------------------------------------------------------------
 DATA_CACHE_DIR = os.path.join(os.path.dirname(__file__), "promptset")
-debug = False
+debug = True
 
 HEADERS_INFO = {
     "gpt-2": {
