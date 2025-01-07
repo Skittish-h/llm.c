@@ -44,8 +44,8 @@ for T in "${TOKEN_SIZES[@]}"; do
 
     # Construct input file path and output filenames
     INPUT_FILE="infer_related_scripts/promptset/prompt_${T}.bin"
-    OUTPUT_DEVICE="timings/timings_device_${PRECISION}_${T}.json"
-    OUTPUT_HOST="timings/timings_host_${PRECISION}_${T}.json"
+    OUTPUT_DEVICE="infer_related_scripts/timings/timings_device_${PRECISION}_${T}.json"
+    OUTPUT_HOST="infer_related_scripts/timings/timings_host_${PRECISION}_${T}.json"
 
     # Check if input file exists
     if [ ! -f "$INPUT_FILE" ]; then
