@@ -234,7 +234,11 @@ int main(int argc, char *argv[]) {
     int T = args.T;
 
     // load model
-    const char* load_filename = "gpt2_124M.bin";
+    #if defined(ENABLE_BF16)
+        const char* load_filename = "gpt2_124M_bf16.bin";
+    #else
+        const char* load_filename = "gpt2_124M.bin";
+    #endif
     GPT2 model;
     gpt2_init_common(&model);
     gpt2_build_from_checkpoint(&model, load_filename);

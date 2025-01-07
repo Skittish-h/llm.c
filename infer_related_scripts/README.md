@@ -1,16 +1,46 @@
 # Aplied GPU Programming - Inference Related Scripts
 
-All inference notebooks default to the current state of the repo - FP16 accuracy.
-To modify the FP accuracy, modify the PRECISION within make to `FP32` and or `BF16` and recompile the repo.
-BF 16 additionally requires modifying the given inference script to load the bf16 model, i.e. 
-```c
-const char* load_filename = "gpt2_124M.bin";
-```
-Should be changed to:
-```c
-const char* load_filename = "gpt2_124M_bf16.bin";
-```
+## Overview
 
+This sections gives a short overview of newly created and edited files in this `LLM.c` fork.
+
+### Created files
+
+[`infer_gpt2.cu`](../infer_gpt2.cu) Inference script for handling user input tokens\
+[`infer_gpt2_timing_host.cu`](../infer_gpt2_timing_host.cu) Inference script with timings and dataloader.\
+[`infer_gpt2_timing_device.cu`](../infer_gpt2_timing_device.cu) Inference script with timings and dataloader with token sampling on device.\
+[`infer_gpt2_zvono_accuracy.cu`](../infer_gpt2_zvono_accuracy.cu) Inference script for collecting logits for perplexity analysis.\
+
+[`llmc/promptloader.h`](../llmc/promptloader.h) Dataloader for tokenized prompts\
+[`infer_related_scripts/`](../infer_related_scripts/) Directory with python evaluation scripts, dataset generation and dataset files
+
+
+### Edited files
+
+[`Makefile`](../Makefile) Modified to support FP16 and compile infernece CUDA scripts\
+[`train_gpt2.cu`](../train_gpt2.cu) Added mode inference mode which disables gradient and optimizer allocations.\
+[`llmc/cuda_common.h`](../llmc/cuda_common.h) Online type conversion from FP32 to FP16 in `inline void file_to_devic` and added new precision mode.\
+[`llmc/cuda_common.h`](../llmc/cuda_common.h) Added utility functions for copying, casting and handling FP16 precision type.\
+[`llmc/sampler.h`](../llmc/cuda_common.h) Added a sampling fucntion that support top k and nucleus sampling and function for computing log probabilities.\
+
+## Setup
+
+1. Download model weights by executing the statrter pack bash script\
+    `./dev/download_starter_pack.sh`
+2. Comnpile the project\
+    `make`\
+    or optionally specify precision\
+    `make PRESICION=BF16`
+3. Install python requirements for tokenizen the prompt dataset and evaluating metrics\
+    `pip install -r requirements.txt`
+4. Done!
+
+All inference scripts default to the current state of the repo - FP16 accuracy.
+
+## Run inference
+
+To run inference execute `./infer_gpt2cu` with default settings and default input tokens.
+`
 
 ## Perplexity Scripts
 
