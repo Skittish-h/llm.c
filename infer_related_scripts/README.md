@@ -95,7 +95,7 @@ If you want to run the perplexity experiments in your shell:
 python infer_related_scripts/promptset.py -t 64
 mkdir -p saved_logits
 make infer_gpt2_divergencecu
-/infer_gpt2_divergencecu --name fp16 -t 64 -i "infer_related_scripts/promptset/prompt_64.bin"
+./infer_gpt2_divergencecu --name fp16 --t 64 --in "infer_related_scripts/promptset/prompt_64.bin"
 ```
 Then to run analysis, modify the variables of compare.py to match the name flags used when collecting logit data.
 ```python
